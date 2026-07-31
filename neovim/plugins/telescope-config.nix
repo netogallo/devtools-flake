@@ -1,17 +1,13 @@
-{ self, lib, config, ... }:
+{ lib, config, ... }:
 let
   inherit (lib) mkOption types;
-  #enabled = config.enabled;
 in
   {
-    imports = [
-     ./plugins/telescope-config.nix
-    ];
-    options = {
+    options.plugins.telescope = {
       enable = mkOption {
         type = types.bool;
         description = ''
-          Enable a neovim configuration.
+          Enable the telescopoe plugin
         '';
         default = false;
       };

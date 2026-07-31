@@ -4,6 +4,7 @@ let
 in
   {
     config.development-tools.neovim.example1 = {
-      enabled = true;
+      enable = true;
+      plugins.telescope.enable = true;
     };
   }
