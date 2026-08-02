@@ -1,7 +1,6 @@
 { config, lib, callPackage, neovim-spec, ... }:
 let
   inherit (lib) mkOption types;
-  inherit (callPackage ./prelude.nix {}) modes;
 
   /** The "keymap" config allows specifying modes
   *   as strings or lists for convenience. Furhtermore,
@@ -16,16 +15,22 @@ let
       lib.naturalSort (
         if lib.isString keymaps.mode
         then [ keymaps.mode ]
-        else mode
+        else keymaps.mode
       )
     ;
   in
     keymaps // { inherit mode; }
   ;
   by-mode = f: keymaps:
+  let
+    # The keymap is converted to a string for grouping.
+    # However, we wish to supply the keymap as the
+    # argument, not the string.
+    mapper = _key: kms: f ((lib.head kms).mode) kms;
+  in
     lib.attrValues (
-      lib.mapAttrs f (
-          lib.groupBy (s: s.mode) (
+      lib.mapAttrs mapper (
+          lib.groupBy (s: lib.concatStrings s.mode) (
             lib.map normalize-mode keymaps
         )
       )
@@ -35,14 +40,14 @@ let
     lib.attrValues (
       lib.mapAttrs f (
         lib.groupBy (s: s.keymap) keymaps
-      );
+      )
     )
   ;
   keymap-lua = { mode, keymap }: specs:
   let
     modes-str = lib.concatStringsSep "," (lib.map (m: ''"${m}"'') mode);
-    commands = lib.concatStringsSep "\n" (lib.map (s.action) specs);
-    descriptions = lib.concatStringsSep ". " (lib.map (s.desc) specs);
+    commands = lib.concatStringsSep ";" (lib.map (s: s.action.lua-run-script) specs);
+    descriptions = lib.concatStringsSep ". " (lib.map (s: s.desc) specs);
   in
     ''
     vim.keymap.set(
@@ -58,7 +63,7 @@ let
   keymaps-lua =
   let
     by-keymap-fn = mode: keymap: specs: keymap-lua { inherit mode keymap; } specs;
-    by-mode-fn = mode: keymaps: lib.concat (by-keymap (by-keymap-fn mode) keymaps);
+    by-mode-fn = mode: keymaps: lib.concatStringsSep "\n" (by-keymap (by-keymap-fn mode) keymaps);
   in
     lib.concatStringsSep "\n" (by-mode by-mode-fn neovim-spec.keymaps)
   ;

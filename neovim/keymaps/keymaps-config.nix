@@ -1,7 +1,8 @@
-{ lib, callPackage, ... }:
+{ lib, neovim-prelude, ... }:
 let
+  inherit (neovim-prelude) command-spec;
   inherit (lib) mkOption types;
-  inherit (callPackage ./prelude.nix {}) modes;
+  inherit (lib.callPackageWith { inherit lib; } ./prelude.nix {}) modes;
   mode-type = types.enum modes;
   keymap =
     types.submodule {
@@ -24,7 +25,7 @@ let
           '';
         };
         action = mkOption {
-          type = types.str;
+          type = command-spec;
           description = ''
             The action to be performed when the key combination
             corresponding to this keymap is pressed.

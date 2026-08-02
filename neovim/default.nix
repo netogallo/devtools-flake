@@ -3,8 +3,10 @@ let
   inherit (lib) types mkOption;
   inherit (flake-parts-lib)
     mkPerSystemOption;
+  neovim-prelude = lib.callPackageWith { inherit lib; } ./prelude.nix {};
   neovim-spec = types.submodule {
     imports = [ ./neovim.nix ];
+    config._module.args = { inherit neovim-prelude; };
   };
   flake-config = config;
   perSystem = { pkgs, config, ... }:
