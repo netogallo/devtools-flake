@@ -1,10 +1,10 @@
 { self, lib, config, ... }:
 let
   inherit (lib) mkOption types;
-  #enabled = config.enabled;
 in
   {
     imports = [
+      ./keymaps/keymaps-config.nix
      ./plugins/telescope-config.nix
     ];
     options = {

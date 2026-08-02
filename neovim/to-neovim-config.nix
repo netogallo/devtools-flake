@@ -15,6 +15,7 @@ let
     lib.evalModules {
       modules = [
         ./configuration-spec.nix
+        ./keymaps/keymaps.nix
         ./plugins/telescope.nix
         {
           config._module.args = { inherit pkgs; neovim-spec = spec; };
