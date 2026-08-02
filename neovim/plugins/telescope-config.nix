@@ -15,12 +15,15 @@ in
     config = mkIf config.plugins.telescope.enable {
       commands.telescope = {
         find-files = {
-          lua-run-script = ''
-            local telescope = require('telescope.builtin')
-            telescope.find_files()
-          '';
+          lua-run-script = "require('telescope.builtin').find_files()";
           description = ''
             Command to display the file picker.
+          '';
+        };
+        live-grep = {
+          lua-run-script = "require('telescope.builtin').live_grep()";
+          description = ''
+            Command to find strings in the workspace with telescope.
           '';
         };
       };

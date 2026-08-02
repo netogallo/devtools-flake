@@ -13,12 +13,12 @@ in
           action = find-files;
           desc = "Find files with telescope";
         }
-        #{
-        #  mode = "n";
-        #  keymap = "<leader>fg";
-        #  action = live-grep;
-        #  desc = "Live grep search using telescope";
-        #}
+        {
+          mode = "n";
+          keymap = "<leader>fg";
+          action = live-grep;
+          desc = "Live grep search using telescope";
+        }
       ];
     };
   }
