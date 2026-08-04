@@ -7,13 +7,17 @@
   spec,
   pkgs,
   lib,
+  neovim-prelude,
   ...
 }:
 let
   inherit (lib) mkIf mkOverride;
   config-base = {
     config = {
-      _module.args = { inherit pkgs; neovim-spec = spec; };
+      _module.args = {
+        pkgs = pkgs.extend neovim-prelude.overlay;
+        neovim-spec = spec;
+      };
       customLuaRC = ''
         vim.g.mapleader = "${spec.globals.mapleader}"
         vim.notify("Setting leader to '${spec.globals.mapleader}'", vim.log.levels.INFO)

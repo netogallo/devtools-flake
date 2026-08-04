@@ -21,7 +21,8 @@ let
       };
     };
   };
+  overlay = final: prev: final.callPackage ./overlay.nix {};
 in
   {
-    inherit command-spec;
+    inherit command-spec overlay;
   }

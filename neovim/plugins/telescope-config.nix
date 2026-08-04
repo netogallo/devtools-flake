@@ -11,6 +11,17 @@ in
         '';
         default = false;
       };
+      globals = {
+        file-ignore-patterns = mkOption {
+          type = types.listOf types.str;
+          description = ''
+            Supplementary patters to ignore files, in addition
+            to the .gitignore file. Theese are specified as
+            glob patterns.
+          '';
+          default = [];
+        };
+      };
     };
     config = mkIf config.plugins.telescope.enable {
       commands.telescope = {
