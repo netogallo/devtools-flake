@@ -19,6 +19,7 @@ let
         neovim-spec = spec;
       };
       customLuaRC = ''
+        vim.notify("LUARC: " .. debug.getinfo(1, "S").source, vim.log.levels.INFO)
         vim.g.mapleader = "${spec.globals.mapleader}"
         vim.notify("Setting leader to '${spec.globals.mapleader}'", vim.log.levels.INFO)
       '';

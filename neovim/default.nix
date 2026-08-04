@@ -19,7 +19,7 @@ let
       inherit (
         pkgs.callPackage
         ./to-neovim-config.nix
-        { inherit name spec lib pkgs; }
+        { inherit name spec lib pkgs neovim-prelude; }
       ) apps;
     };
     neovim-configs =

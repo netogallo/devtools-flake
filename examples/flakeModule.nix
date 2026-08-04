@@ -5,7 +5,10 @@ in
   {
     config.development-tools.neovim.example1 = {
       enable = true;
-      plugins.telescope.enable = true;
+      plugins.telescope = {
+        enable = true;
+        globals.file-ignore-patterns = ["**/*.nix"];
+      };
       keymaps = with config.development-tools.neovim.example1.commands.telescope; [
         {
           mode = "n";

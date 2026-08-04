@@ -9,10 +9,11 @@
 let
   inherit (pkgs) nix-lua;
   inherit (lib) mkIf;
-  enable = neovim-spec.plugins.telescope.enable;
+  inherit (neovim-spec.plugins) telescope;
+  enable = telescope.enable;
   setup = {
     defaults = {
-      file_ignore_patterns = config.globals.file-ignore-patterns;
+      file_ignore_patterns = telescope.globals.file-ignore-patterns;
     };
   };
 in
