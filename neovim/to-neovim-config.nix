@@ -31,6 +31,7 @@ let
         ./configuration-spec.nix
         ./keymaps/keymaps.nix
         ./plugins/telescope.nix
+        ./plugins/indent-blankline.nix
         config-base
       ];
     }
