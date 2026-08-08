@@ -7,8 +7,15 @@
 */
 { lib, pkgs, neovim-spec, config, ... }:
 let
+  inherit (pkgs) nix-lua;
   inherit (lib) mkIf;
-  enable = neovim-spec.plugins.telescope.enable;
+  inherit (neovim-spec.plugins) telescope;
+  enable = telescope.enable;
+  setup = {
+    defaults = {
+      file_ignore_patterns = telescope.globals.file-ignore-patterns;
+    };
+  };
 in
   {
     config = mkIf enable {
@@ -18,6 +25,7 @@ in
           plenary-nvim
         ];
       };
+      customLuaRC = ''require('telescope').setup(${nix-lua.as-expr setup})'';
     };
   }
 

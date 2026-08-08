@@ -21,7 +21,10 @@ let
       };
     };
   };
+  overlay = final: prev: {
+    nix-lua = prev.callPackage ./prelude/nix-lua.nix {};
+  };
 in
   {
-    inherit command-spec;
+    inherit command-spec overlay;
   }

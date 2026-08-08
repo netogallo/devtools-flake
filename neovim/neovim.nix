@@ -6,7 +6,8 @@ in
   {
     imports = [
       ./keymaps/keymaps-config.nix
-     ./plugins/telescope-config.nix
+      ./plugins/telescope-config.nix
+      ./plugins/indent-blankline-config.nix
     ];
     options = {
       enable = mkOption {
