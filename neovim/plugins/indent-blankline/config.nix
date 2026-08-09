@@ -4,18 +4,21 @@
  */
 { lib, config, ... }:
 let
-  inherit (lib) mkOption mkIf types;
+  inherit (lib) mkOption mkIf types callPackageWith;
+  inherit (callPackageWith { inherit lib; } ./prelude.nix {}) presets;
   color-type = types.submodule {
-    name = mkOption {
-      type = types.str;
-      description = "The name that will be used to register the color within neovim.";
-    };
-    fg = mkOption {
-      type = types.str;
-      description = "The value that will be passed as the 'fg' component of the color.";
+    options = {
+      name = mkOption {
+        type = types.str;
+        description = "The name that will be used to register the color within neovim.";
+      };
+      fg = mkOption {
+        type = types.str;
+        description = "The value that will be passed as the 'fg' component of the color.";
+      };
     };
   };
-  color-presets = types.enum [ "ibl-default" "none" ];
+  color-presets = types.enum (lib.attrNames presets);
 in
   {
     options.plugins.indent-blankline = {

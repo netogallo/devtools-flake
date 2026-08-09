@@ -11,7 +11,7 @@ in
       enable = true;
       plugins.telescope = {
         enable = true;
-        #globals.file-ignore-patterns = ["**/*.nix"];
+        globals.file-ignore-patterns = ["flake.lock"];
       };
       plugins.indent-blankline = {
         enable = true;

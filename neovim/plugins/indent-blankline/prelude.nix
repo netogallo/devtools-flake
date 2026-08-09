@@ -1,7 +1,7 @@
 { lib, ... }:
 let
   presets = {
-    default = [
+    ibl-default = [
       { name = "RainbowRed"; fg = "#E06C75"; }
       { name = "RainbowYellow"; fg = "#E5C07B"; }
       { name = "RainbowBlue"; fg = "#61AFEF"; }
@@ -10,6 +10,7 @@ let
       { name = "RainbowViolet"; fg = "#C678DD"; }
       { name = "RainbowCyan"; fg = "#56B6C2"; }
     ];
+    none = null;
   };
 in
   {

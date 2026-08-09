@@ -28,8 +28,8 @@ let
       modules = [
         ./configuration-spec.nix
         ./keymaps/keymaps.nix
-        ./plugins/telescope.nix
-        ./plugins/indent-blankline.nix
+        ./plugins/telescope/setup.nix
+        ./plugins/indent-blankline/setup.nix
         config-base
       ];
     }
