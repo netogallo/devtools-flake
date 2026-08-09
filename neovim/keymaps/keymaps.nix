@@ -47,7 +47,7 @@ let
   let
     modes-str = lib.concatStringsSep "," (lib.map (m: ''"${m}"'') mode);
     commands = lib.concatStringsSep ";" (lib.map (s: s.action.lua-run-script) specs);
-    descriptions = lib.concatStringsSep ". " (lib.map (s: s.desc) specs);
+    descriptions = lib.concatStringsSep ". " (lib.map (s: s.description) specs);
   in
     ''
     vim.keymap.set(

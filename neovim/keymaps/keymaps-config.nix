@@ -31,7 +31,7 @@ let
             corresponding to this keymap is pressed.
           '';
         };
-        desc = mkOption {
+        description = mkOption {
           type = types.str;
           description = ''
             The `desc` argument that is supplied to the `vim.keymap.set`
