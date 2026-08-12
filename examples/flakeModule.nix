@@ -7,7 +7,11 @@ let
   ];
 in
   {
-    config.development-tools.neovim.example1 = {
+    config.development-tools.presets.prelude.neovim.prelude-nvim.enable = true;
+    config.development-tools.neovim.prelude-nvim = {
+      plugins.telescope.globals.file-ignore-patterns = ["flake.lock"];
+    };
+    config.development-tools.neovim.neovim-example1 = {
       enable = true;
       plugins.telescope = {
         enable = true;
@@ -17,7 +21,7 @@ in
         enable = true;
         colors = ibl-colors;
       };
-      keymaps = with config.development-tools.neovim.example1.commands.telescope; [
+      keymaps = with config.development-tools.neovim.neovim-example1.commands.telescope; [
         {
           mode = "n";
           keymap = "<leader>ff";

@@ -21,8 +21,6 @@
         # Per-system attributes can be defined here. The self' and inputs'
         # module parameters provide easy access to attributes of the same
         # system.
-
-        # Equivalent to  inputs'.nixpkgs.legacyPackages.hello;
       };
       flake = flake-parts.lib.mkFlake { inherit inputs; } {
         imports = [

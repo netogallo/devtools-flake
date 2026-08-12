@@ -11,7 +11,8 @@ let
   flake-config = config;
   perSystem = { pkgs, config, ... }:
   let
-    to-neovim-config = name: spec: {
+    to-neovim-config = name: spec:
+    let
       # If 'callPackage' is used, one must expliclity
       # extract the required attributes. Otherwise we
       # run into infinite recursion when folding
@@ -21,21 +22,30 @@ let
         ./to-neovim-config.nix
         { inherit name spec lib pkgs neovim-prelude; }
       ) apps;
-    };
+    in
+      {
+        value = apps;
+        file = ./default.nix;
+      }
+    ;
     neovim-configs =
-      lib.mapAttrs
-        to-neovim-config
-        flake-config.development-tools.neovim
+      lib.attrValues (
+        lib.mapAttrs
+          to-neovim-config
+          flake-config.development-tools.neovim
+      )
     ;
   in
     {
-      config =
-        lib.foldAttrs
-        (attrs: state: lib.attrsets.unionOfDisjoint state attrs)
-        {}
-        ( lib.attrValues neovim-configs ++
-          [ { apps = {}; } ]
-        )
+      config.apps =
+        # Todo: Do not call the police.
+        # The option mergeing is using "attrsOf anything" as the type for
+        # mergeing. This should not be an issue as each app definition should
+        # be independent and are created programatically (not by user).
+        (lib.mergeDefinitions [ "development-tools" "neovim" ] (types.attrsOf types.anything)
+        ( neovim-configs ++
+          [ { value = {}; file = ./default.nix; } ]
+        )).mergedValue
       ;
     }
   ;

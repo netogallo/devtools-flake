@@ -38,8 +38,8 @@ let
     configure = config-module.config;
   };
   neovim-qt = pkgs.neovim-qt.override { inherit neovim; };
-  app-name = "devtools-neovim-${name}";
-  app-name-qt = "devtools-neovim-${name}-qt";
+  app-name = "devtools/${name}";
+  app-name-qt = "devtools/${name}-qt";
 in
   {
     apps = mkIf spec.enable {
