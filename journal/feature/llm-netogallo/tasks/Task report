@@ -1,0 +1,2 @@
+Information about the task group under development must be added to the context. This will allow
+the llm to generate reports as it will know what to inspect.

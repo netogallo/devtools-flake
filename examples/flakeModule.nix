@@ -7,10 +7,22 @@ let
   ];
 in
   {
+    # Enable neovim using the 'prelude' preset.
+    # Use the name 'prelude-nvim' for this setup
     config.development-tools.presets.prelude.neovim.prelude-nvim.enable = true;
+
+    # Customize the telescope exclusions of the
+    # 'prelude-nvim' setup
     config.development-tools.neovim.prelude-nvim = {
       plugins.telescope.globals.file-ignore-patterns = ["flake.lock"];
     };
+
+
+    config.development-tools.llm-netogallo.prelude-llm = {
+      enable = true;
+      task-branch-prefix = "feature";
+    };
+
     config.development-tools.neovim.neovim-example1 = {
       enable = true;
       plugins.telescope = {

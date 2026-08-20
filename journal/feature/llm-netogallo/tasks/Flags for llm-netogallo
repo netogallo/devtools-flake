@@ -1,0 +1,5 @@
+The llm-netogallo folder contains a tool I use to organize my workflows when programming with llm tool.
+The script does not support accepting command line arguments. It must be extended as follows:
+- Use 'docopts' to parse command line arguments.
+- Add a new argument called '--new-task'. The argument is optional.
+- It should still be possible to supply arguments to aider

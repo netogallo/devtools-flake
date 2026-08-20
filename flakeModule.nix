@@ -3,6 +3,7 @@ let
   imports = [
     ./presets/flakeModule.nix
     ./neovim/default.nix
+    ./llm-netogallo/config.nix
   ];
 in
 {
