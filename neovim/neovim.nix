@@ -8,6 +8,7 @@ in
       ./keymaps/keymaps-config.nix
       ./plugins/telescope/config.nix
       ./plugins/indent-blankline/config.nix
+      ./lsp/config.nix
     ];
     options = {
       enable = mkOption {

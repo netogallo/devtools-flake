@@ -17,7 +17,6 @@ in
       plugins.telescope.globals.file-ignore-patterns = ["flake.lock"];
     };
 
-
     config.development-tools.llm-netogallo.prelude-llm = {
       enable = true;
       task-branch-prefix = "feature";
@@ -25,6 +24,7 @@ in
 
     config.development-tools.neovim.neovim-example1 = {
       enable = true;
+      lsp.python-lsp-server.enable = true;
       plugins.telescope = {
         enable = true;
         globals.file-ignore-patterns = ["flake.lock"];

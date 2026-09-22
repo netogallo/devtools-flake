@@ -30,6 +30,7 @@ let
         ./keymaps/keymaps.nix
         ./plugins/telescope/setup.nix
         ./plugins/indent-blankline/setup.nix
+        ./lsp/setup.nix
         config-base
       ];
     }
