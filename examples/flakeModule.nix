@@ -60,4 +60,13 @@ in
         }
       ];
     };
+
+    config.development-tools.lite-llm.prelude-lite-llm = {
+      enable = true;
+      models = {
+        "master" = {
+          model = "openrouter/mistralai/devstral";
+        };
+      };
+    };
   }
