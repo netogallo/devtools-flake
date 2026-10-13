@@ -502,3 +502,149 @@ pkgs.runCommand "config.yaml" { } ''
 **Note:** `lib.generators.toYAML` handles nested attrsets, lists, strings, numbers, and booleans. It does not support functions or derivations.
 
 > Tokens: 1.3k sent, 790 received. Cost: $0.0025 message, $0.0055 session.  
+
+#### How do I check if a file exits in bash?  
+
+<thinking-content-7bbeb8e1441453ad999a0bbba8a46d4b>
+
+The user is asking a basic bash question: how to check if a file exists. This is a straightforward technical question. I should provide the common methods:
+
+1. `test -f filename` or `[ -f filename ]` - checks if file exists and is a regular file
+2. `test -e filename` or `[ -e filename ]` - checks if file exists (any type: file, directory, symlink, etc.)
+3. `test -d filename` or `[ -d filename ]` - checks if directory exists
+4. `[[ -f filename ]]` - bash-specific, more robust
+5. `[[ -e filename ]]` - bash-specific, checks existence
+
+I should mention the difference between `-f` (regular file) and `-e` (exists, any type), and maybe mention `-L` for symlinks.
+
+Also mention the `!` operator for negation.
+
+Keep it concise but comprehensive.
+
+</thinking-content-7bbeb8e1441453ad999a0bbba8a46d4b>
+
+In bash, use the `test` command (or `[ ]` / `[[ ]]`):
+
+**Check if a file exists (any type):**
+```bash
+if [ -e "filename" ]; then
+  echo "exists"
+fi
+```
+
+**Check if it's a regular file (not a directory/symlink):**
+```bash
+if [ -f "filename" ]; then
+  echo "is a regular file"
+fi
+```
+
+**Check if it's a directory:**
+```bash
+if [ -d "dirname" ]; then
+  echo "is a directory"
+fi
+```
+
+**Check if it's a symlink:**
+```bash
+if [ -L "linkname" ]; then
+  echo "is a symlink"
+fi
+```
+
+**Negation (does not exist):**
+```bash
+if [ ! -e "filename" ]; then
+  echo "does not exist"
+fi
+```
+
+**Bash-specific (recommended for scripts):**
+```bash
+if [[ -f "filename" ]]; then
+  echo "exists"
+fi
+```
+
+**Quick one-liner:**
+```bash
+[ -f "filename" ] && echo "yes" || echo "no"
+```
+
+**Key flags:**
+- `-e` : exists (file, directory, symlink, etc.)
+- `-f` : exists and is a regular file
+- `-d` : exists and is a directory
+- `-L` : exists and is a symbolic link
+- `-r` / `-w` / `-x` : readable / writable / executable
+
+> Tokens: 1.7k sent, 573 received. Cost: $0.0023 message, $0.0079 session.  
+
+#### How do I echo an error in red in bash?  
+
+<thinking-content-7bbeb8e1441453ad999a0bbba8a46d4b>
+
+The user wants to know how to echo an error message in red color in bash. This is a common terminal formatting question.
+
+The standard way is to use ANSI escape codes. The format is:
+- `\033[` or `\e[` or `\x1b[` to start the escape sequence
+- `31` for red foreground color
+- `m` to end the color code
+- Then the text
+- Then `\033[0m` or `\e[0m` to reset the color
+
+So: `echo -e "\033[31mError message\033[0m"` or `echo -e "\e[31mError message\e[0m"`
+
+Alternative using `tput` (more portable):
+`tput setaf 1` for red (color 1 is usually red)
+`tput sgr0` to reset
+
+So: `echo "$(tput setaf 1)Error message$(tput sgr0)"`
+
+Or using printf:
+`printf "\033[31mError message\033[0m\n"`
+
+I should provide the most common methods:
+1. ANSI escape codes with echo -e (most common)
+2. Using tput (more portable across different terminals)
+3. Using printf (also portable)
+
+Also mention that for errors, it's common to write to stderr (>&2) as well.
+
+Let me provide a clear, concise answer with examples.
+
+</thinking-content-7bbeb8e1441453ad999a0bbba8a46d4b>
+
+Use ANSI escape codes with `echo -e` or `printf`:
+
+**Method 1: ANSI escape codes (most common)**
+```bash
+echo -e "\033[31mError: something went wrong\033[0m"
+# or
+echo -e "\e[31mError: something went wrong\e[0m"
+```
+
+**Method 2: Using `tput` (more portable)**
+```bash
+echo "$(tput setaf 1)Error: something went wrong$(tput sgr0)"
+```
+
+**Method 3: Using `printf`**
+```bash
+printf "\033[31mError: something went wrong\033[0m\n"
+```
+
+**Bonus: Write to stderr (standard for errors)**
+```bash
+echo -e "\033[31mError: something went wrong\033[0m" >&2
+```
+
+**Color codes reference:**
+- `\033[31m` or `\e[31m` = Red
+- `\033[32m` = Green
+- `\033[33m` = Yellow
+- `\033[34m` = Blue
+- `\033[0m` = Reset (always use this at the end)
+
+> Tokens: 2.0k sent, 595 received. Cost: $0.0026 message, $0.01 session.  

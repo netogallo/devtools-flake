@@ -63,6 +63,11 @@ let
     pkgs.writeText "config.yml" (lib.generators.toYAML {} lite-llm-config)
   ;
 
+  /**
+  This wrapper sets up the environmental variables and subsequently
+  launches lite llm.
+  */
+
 in
 {
   config.apps."devtools/${lite-llm-name}" = {
