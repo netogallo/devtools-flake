@@ -17,14 +17,6 @@ let
           an example 'openrouter/openai/gpt-4'.
         '';
       };
-
-      model-name = mkOption {
-        type = types.nullOr types.str;
-        description = ''
-          The name that will be given to this model within the llm-lite instance.
-        '';
-        default = null;
-      };
     };
   };
   spec = types.submodule {

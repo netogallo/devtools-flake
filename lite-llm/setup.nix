@@ -1,11 +1,26 @@
+/**
+This module is responsible for generating all the flake attributes
+that result from a lite-llm configuration. Multiple named lite-llm
+configurations can be present in a flake, each will result in
+a separate set of attributes in the flake.
+*/
 { pkgs, lib, lite-llm-name, lite-llm, ... }:
 let
-  what = lib.concatStringsSep "," (lib.attrNames lite-llm.models);
   dummy = pkgs.writeScript "dummy" ''
     #!${pkgs.bash}/bin/bash
-    echo "${what}" | ${pkgs.cowsay}/bin/cowsay
+    ${pkgs.cowsay}/bin/cowsay < ${lite-llm-config-yml}
   '';
 
+  /**
+  Contains llm provider specific parameters
+  that are used to build the lite-llm configuration.
+  This includes:
+    - api_key: The provider API key. For security reasons, the
+      key is not saved to the nix store. Instead each provider
+      will read it from a specific environmental variable.
+      When the lite-llm instance is launched, theese variables
+      will be set by reading the keys from a private directory.
+  */
   provider-params = {
     openrouter = rec {
       key-env-name = "OPENROUTER_API_KEY";
@@ -23,28 +38,30 @@ let
     else throw "Unsupported model provider '${provider}'"
   ;
 
-  to-model-config = model-spec@{ model, model-name, ... }:
+  /**
+  Create an attribute set matching the configuration that
+  lite-llm expects for each model definition.
+  */
+  to-model-config = model-name: { model, ... }:
   let
     provider-params = get-provider-params model;
     provider-config = { inherit (provider-params) api_key; };
-
-    result = {
-      model_name = if model-name == null then model else model-name;
+  in
+    {
+      inherit model-name;
       litellm_params = {
         inherit model;
       } // provider-config;
-    };
-  in
-    result
+    }
   ;
 
-  # This function generates the config that will be used to
-  # launch llm-lite. The config is saved as a derivation.
-  # All keys will be read from environmental variables, with
-  # a specific name per provider
-  llmlite-config = llm-lite-spec: {
-    model_list = lib.mapAttrs to-model-config llm-lite-spec.models;
+  lite-llm-config = {
+    model_list = lib.attrValues (lib.mapAttrs to-model-config lite-llm.models);
   };
+
+  lite-llm-config-yml =
+    pkgs.writeText "config.yml" (lib.generators.toYAML {} lite-llm-config)
+  ;
 
 in
 {
