@@ -1,0 +1,3 @@
+Create a configuration for adding llm-lite to your development environment. The modules will reside in the llm-lite directory
+and will follow the same pattern already define for other modules. The examples directory showcases the general
+pattern.
