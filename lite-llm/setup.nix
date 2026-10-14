@@ -60,9 +60,26 @@ let
 
   /**
   The environment that provides the 'litellm' executable, the
-  proxy server that serves the configured models.
+  proxy server that serves the configured models. The nixpkgs
+  'litellm' package only propagates the dependencies of the
+  core library, but running the proxy server requires the
+  dependencies of the 'proxy' extra, i.e. the ones that
+  'pip install litellm[proxy]' would install. Those are added
+  to the environment explicitly.
   */
-  litellm = pkgs.python3.withPackages (ps: [ ps.litellm ]);
+  litellm = pkgs.python3.withPackages (ps: [
+    ps.litellm
+    ps.backoff
+    ps.fastapi
+    ps.uvicorn
+    ps.pyjwt
+    ps.apscheduler
+    ps.websockets
+    ps.orjson
+    ps.python-multipart
+    ps.cryptography
+    ps.pyyaml
+  ]);
 
   /**
   The list of model providers used by the models configured for
