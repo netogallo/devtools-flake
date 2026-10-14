@@ -5,6 +5,7 @@ let
     ./neovim/default.nix
     ./llm-netogallo/config.nix
     ./lite-llm/config.nix
+    ./prelude/config.nix
   ];
 in
 {

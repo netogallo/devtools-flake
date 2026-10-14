@@ -36,6 +36,14 @@ let
           to the llmlite instance.
         '';
       };
+
+      port = mkOption {
+        type = types.int;
+        description = ''
+          The port on which lite-llm will be served.
+        '';
+        default = 4000;
+      };
     };
   };
   perSystem = _:
