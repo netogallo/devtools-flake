@@ -6,12 +6,6 @@ a separate set of attributes in the flake.
 */
 { pkgs, lib, devtools-prelude, lite-llm-name, lite-llm, ... }:
 let
-  dummy = pkgs.writeScript "dummy" ''
-    #!${pkgs.bash}/bin/bash
-    source "${devtools-prelude.get-config lite-llm-name}"
-    ${pkgs.cowsay}/bin/cowsay < ${lite-llm-config-yml}
-  '';
-
   /**
   Contains llm provider specific parameters
   that are used to build the lite-llm configuration.
@@ -19,7 +13,7 @@ let
     - api_key: The provider API key. For security reasons, the
       key is not saved to the nix store. Instead each provider
       will read it from a specific environmental variable.
-      When the lite-llm instance is launched, theese variables
+      When the lite-llm instance is launched, these variables
       will be set by reading the keys from a private directory.
   */
   provider-params = {
@@ -65,7 +59,49 @@ let
   ;
 
   /**
-  This wrapper script runs lite llm with the configuration
+  The environment that provides the 'litellm' executable, the
+  proxy server that serves the configured models.
+  */
+  litellm = pkgs.python3.withPackages (ps: [ ps.litellm ]);
+
+  /**
+  The list of model providers used by the models configured for
+  this lite-llm instance. The list contains no duplicates.
+  */
+  used-providers = lib.unique (
+    lib.mapAttrsToList (_: { model, ... }:
+      lib.head (lib.strings.splitString "/" model)
+    ) lite-llm.models
+  );
+
+  /**
+  Generate the shell commands that read the API key of the given
+  provider from a file located in the tool's configuration
+  directory (DEVTOOLS_CONFIG) and export it as an environmental
+  variable. The key is expected to be saved in a file named after
+  the environmental variable that lite-llm reads it from. If the
+  file does not exist, the commands inform the user where to save
+  the key and exit with a non-zero status.
+  */
+  to-api-key-setup = provider:
+  let
+    params = get-provider-params provider;
+    key-file = "$DEVTOOLS_CONFIG/${params.key-env-name}";
+  in
+  ''
+  if [[ ! -f "${key-file}" ]]; then
+    echo -e "\033[31mError: The API key for the '${provider}' provider is missing.\033[0m" >&2
+    echo "Save the key in '${key-file}' and launch '${lite-llm-name}' again." >&2
+    exit 1
+  fi
+  export ${params.key-env-name}="$(<"${key-file}")"
+  ''
+  ;
+
+  api-key-setup = lib.concatStrings (map to-api-key-setup used-providers);
+
+  /**
+  This wrapper script runs lite-llm with the configuration
   defined by the 'lite-llm-config-yml' derivation. The
   process proceeds as follows:
     1. Source the tool specific environment using the
@@ -81,17 +117,28 @@ let
       expectation is that the user will put the api keys
       in the right files. If the file does not exist,
       exit and inform the user where to save the key.
-      3. Launch litellm with the settings specified by
-        the config comming from the 'lite-llm' value.
-        The strucutre of this object is speciifed
-        in the ./config.nix file.
+    3. Launch litellm with the settings specified by
+      the config coming from the 'lite-llm' value.
+      The structure of this object is specified
+      in the ./config.nix file.
   */
-  launch-lite-llm = null;
+  launch-lite-llm = pkgs.writeScript "launch-${lite-llm-name}" ''
+    #!${pkgs.bash}/bin/bash
+    set -e
+
+    source "${devtools-prelude.get-config lite-llm-name}"
+
+    ${api-key-setup}
+
+    exec ${litellm}/bin/litellm \
+      --config "${lite-llm-config-yml}" \
+      --port "${toString lite-llm.port}"
+  '';
 
 in
 {
   config.apps."devtools/${lite-llm-name}" = {
     type = "app";
-    program = "${dummy}";
+    program = "${launch-lite-llm}";
   };
 }
