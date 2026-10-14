@@ -12,7 +12,7 @@ let
       export DEVTOOLS_CONFIG_GLOBAL="$DEVTOOLS_CONFIG_ROOT/private"
 
       mkdir -p "$DEVTOOLS_CONFIG_GLOBAL"
-      GITIGNORE="$DEVTOOLS_CONFIG_GLOBAL/.gitignore"
+      GITIGNORE="$DEVTOOLS_CONFIG_ROOT/.gitignore"
 
       if [[ ! -e "$GITIGNORE" ]]; then
         echo "private" >> "$GITIGNORE"
@@ -22,6 +22,15 @@ let
         echo -e "\033[31mWarning: '$GITIGNORE' is not a file. Ensure that '$DEVTOOLS_CONFIG_ROOT/private' is not commited. \033[0m"
       fi
     '';
+
+    /**
+    This sets the environmental variables that development tools can
+    use to locate resources, such as the directory that will
+    be used to store user/session specific settings. This
+    script is meant to be sourced by the respective tool
+    before launching. The tool should provide it's name
+    in order to set the variables propertly.
+    */
     get-config = name:
       pkgs.writeScript "get-config-for-${name}" ''
       #!${pkgs.bash}/bin/bash
@@ -35,8 +44,8 @@ let
     ;
   in
     {
-      options.development-tools.global-config = {
-        get-config-directory
+      config._module.args.devtools-prelude = {
+        inherit get-config;
       };
     }
   ;
@@ -55,7 +64,7 @@ in
             added inside the config directory to ensure it does not get
             accidentally added to VCS.
           '';
-          default = ".development-tools-config";
+          default = "$HOME/.config/development-tools-config";
         };
       };
 

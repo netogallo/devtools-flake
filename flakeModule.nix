@@ -6,6 +6,7 @@ let
     ./llm-netogallo/config.nix
     ./opencode/config.nix
     ./lite-llm/config.nix
+    ./prelude/config.nix
   ];
 in
 {

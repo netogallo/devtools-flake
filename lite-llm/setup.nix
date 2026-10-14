@@ -4,10 +4,11 @@ that result from a lite-llm configuration. Multiple named lite-llm
 configurations can be present in a flake, each will result in
 a separate set of attributes in the flake.
 */
-{ pkgs, lib, lite-llm-name, lite-llm, ... }:
+{ pkgs, lib, devtools-prelude, lite-llm-name, lite-llm, ... }:
 let
   dummy = pkgs.writeScript "dummy" ''
     #!${pkgs.bash}/bin/bash
+    source "${devtools-prelude.get-config lite-llm-name}"
     ${pkgs.cowsay}/bin/cowsay < ${lite-llm-config-yml}
   '';
 
@@ -64,9 +65,28 @@ let
   ;
 
   /**
-  This wrapper sets up the environmental variables and subsequently
-  launches lite llm.
+  This wrapper script runs lite llm with the configuration
+  defined by the 'lite-llm-config-yml' derivation. The
+  process proceeds as follows:
+    1. Source the tool specific environment using the
+      'devtools-prelude.get-config' function. This will
+      define the DEVTOOLS_CONFIG environmental variable
+      which points to the tool's configuration directory
+      that will be used for storing things like provider
+      API keys.
+    2. Based on the llm models defined in the config,
+      define the necessary environmental variables for
+      the API keys. The variables will be read from files
+      located in the tool's configuration directory. The
+      expectation is that the user will put the api keys
+      in the right files. If the file does not exist,
+      exit and inform the user where to save the key.
+      3. Launch litellm with the settings specified by
+        the config comming from the 'lite-llm' value.
+        The strucutre of this object is speciifed
+        in the ./config.nix file.
   */
+  launch-lite-llm = null;
 
 in
 {
