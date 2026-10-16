@@ -51,6 +51,9 @@ in
 
     config.development-tools.lite-llm.prelude-lite-llm = {
       enable = true;
+      users = {
+        alice = {};
+      };
       models = {
         "master" = {
           model = "openrouter/mistralai/devstral";
