@@ -37,13 +37,13 @@ let
   Create an attribute set matching the configuration that
   lite-llm expects for each model definition.
   */
-  to-model-config = model-name: { model, ... }:
+  to-model-config = model_name: { model, ... }:
   let
     provider-params = get-provider-params model;
     provider-config = { inherit (provider-params) api_key; };
   in
     {
-      inherit model-name;
+      inherit model_name;
       litellm_params = {
         inherit model;
       } // provider-config;
@@ -67,19 +67,10 @@ let
   'pip install litellm[proxy]' would install. Those are added
   to the environment explicitly.
   */
-  litellm = pkgs.python3.withPackages (ps: [
-    ps.litellm
-    ps.backoff
-    ps.fastapi
-    ps.uvicorn
-    ps.pyjwt
-    ps.apscheduler
-    ps.websockets
-    ps.orjson
-    ps.python-multipart
-    ps.cryptography
-    ps.pyyaml
-  ]);
+  litellm = pkgs.python3.withPackages (ps:
+    [ ps.litellm ]
+    ++ ps.litellm.optional-dependencies.proxy
+  );
 
   /**
   The list of model providers used by the models configured for
