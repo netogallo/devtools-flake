@@ -50,13 +50,75 @@ let
     }
   ;
 
+  /**
+  The names of the users defined in the configuration. The names
+  are used as file names for the generated authentication keys,
+  so they are validated to only contain file-name-safe characters.
+  */
+  user-names =
+  let
+    names = lib.attrNames lite-llm.users;
+    invalid = lib.filter (name: builtins.match "[A-Za-z0-9_][A-Za-z0-9_.-]*" name == null) names;
+  in
+    if invalid == [ ]
+    then names
+    else throw "lite-llm user names must be file-name-safe, invalid: ${toString invalid}"
+  ;
+
+  /**
+  A litellm custom authenticator that validates the bearer token
+  of each request against the keys of the users defined in the
+  configuration. The keys are stored in the tool's configuration
+  directory, one file per user, under the directory pointed to by
+  the 'LITE_LLM_USERS_DIR' environmental variable, which is
+  exported by the launch script before litellm starts. Only the
+  user names are embedded in the module. This ensures that
+  removing a user from the configuration revokes their access
+  even if their key file still exists.
+  */
+  custom-auth = pkgs.writeText "custom_auth.py" ''
+    import os
+
+    from litellm.integrations.custom_auth import CustomAuth
+
+    USERS = ${builtins.toJSON user-names}
+
+    class UserKeyAuth(CustomAuth):
+        def auth(self, token: str) -> bool:
+            users_dir = os.environ.get("LITE_LLM_USERS_DIR", "")
+            if not token or not users_dir:
+                return False
+            for user in USERS:
+                try:
+                    with open(os.path.join(users_dir, user + ".key")) as key_file:
+                        if key_file.read().strip() == token:
+                            return True
+                except OSError:
+                    continue
+            return False
+  '';
+
   lite-llm-config = {
     model_list = lib.attrValues (lib.mapAttrs to-model-config lite-llm.models);
+  } // lib.optionalAttrs (user-names != [ ]) {
+    general_settings.custom_auth = "custom_auth.UserKeyAuth";
   };
 
   lite-llm-config-yml =
     pkgs.writeText "config.yml" (lib.generators.toYAML {} lite-llm-config)
   ;
+
+  /**
+  A directory that bundles the lite-llm yaml configuration together
+  with the custom authenticator module. litellm resolves the custom
+  authenticator relative to the directory that contains the yaml
+  configuration, so both files need to reside in the same directory.
+  */
+  lite-llm-config-dir = pkgs.runCommand "litellm-config-${lite-llm-name}" {} ''
+    mkdir -p "$out"
+    cp "${lite-llm-config-yml}" "$out/config.yml"
+    cp "${custom-auth}" "$out/custom_auth.py"
+  '';
 
   /**
   The environment that provides the 'litellm' executable, the
@@ -109,8 +171,46 @@ let
   api-key-setup = lib.concatStrings (map to-api-key-setup used-providers);
 
   /**
+  Generate the shell commands that ensure that the given user has
+  an authentication key. The key is stored in a file named after
+  the user, located in the users directory of the tool's
+  configuration directory. If the file does not exist, a random
+  key is generated and saved there. Existing keys are never
+  overwritten, so keys are re-used across launches.
+  */
+  to-user-key-setup = user:
+  ''
+  if [[ ! -f "$users_dir/${user}.key" ]]; then
+    ${pkgs.openssl}/bin/openssl rand -hex 32 > "$users_dir/${user}.key"
+    chmod 600 "$users_dir/${user}.key"
+    echo "Generated the authentication key of '${user}': $users_dir/${user}.key"
+  fi
+  ''
+  ;
+
+  /**
+  The shell commands that prepare the authentication keys of all
+  the users defined in the configuration. The directory holding
+  the keys is exported through the 'LITE_LLM_USERS_DIR'
+  environmental variable so that the custom authenticator can
+  locate it. When no users are defined the commands are empty and
+  no authentication is enabled.
+  */
+  users-setup =
+    if user-names == [ ]
+    then ""
+    else
+    ''
+    users_dir="$DEVTOOLS_CONFIG/users"
+    mkdir -p "$users_dir"
+    export LITE_LLM_USERS_DIR="$users_dir"
+    ${lib.concatStrings (map to-user-key-setup user-names)}
+    ''
+  ;
+
+  /**
   This wrapper script runs lite-llm with the configuration
-  defined by the 'lite-llm-config-yml' derivation. The
+  defined by the 'lite-llm-config-dir' derivation. The
   process proceeds as follows:
     1. Source the tool specific environment using the
       'devtools-prelude.get-config' function. This will
@@ -125,7 +225,14 @@ let
       expectation is that the user will put the api keys
       in the right files. If the file does not exist,
       exit and inform the user where to save the key.
-    3. Launch litellm with the settings specified by
+    3. Based on the users defined in the config, ensure
+      that each user has an authentication key. A random
+      key is generated for users that do not have one
+      yet; existing keys are re-used. The directory
+      holding the keys is exported through the
+      'LITE_LLM_USERS_DIR' environmental variable, which
+      is read by the custom authenticator.
+    4. Launch litellm with the settings specified by
       the config coming from the 'lite-llm' value.
       The structure of this object is specified
       in the ./config.nix file.
@@ -138,8 +245,10 @@ let
 
     ${api-key-setup}
 
+    ${users-setup}
+
     exec ${litellm}/bin/litellm \
-      --config "${lite-llm-config-yml}" \
+      --config "${lite-llm-config-dir}/config.yml" \
       --port "${toString lite-llm.port}"
   '';
 

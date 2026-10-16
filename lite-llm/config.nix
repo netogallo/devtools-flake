@@ -19,6 +19,18 @@ let
       };
     };
   };
+
+  # This submodule configures a user that is allowed
+  # to authenticate against the llm-lite instance. No
+  # options are defined yet; the submodule exists so that
+  # per-user settings (e.g. rate limits) can be added
+  # later without changing the shape of the configuration.
+  # The authentication key is deliberately not an option:
+  # keys are generated when the instance is launched and
+  # never enter the nix store.
+  user-spec = types.submodule {
+    options = {};
+  };
   spec = types.submodule {
     options = {
       enable = mkOption {
@@ -34,6 +46,20 @@ let
         description = ''
           Holds the configuration of all the models that will be available
           to the llmlite instance.
+        '';
+      };
+
+      users = mkOption {
+        type = types.attrsOf user-spec;
+        default = {};
+        description = ''
+          The users that are allowed to authenticate against this
+          llm-lite instance, keyed by user name. Authentication keys
+          are generated when the instance is launched and are stored
+          in the tool's private configuration directory; they are not
+          part of this configuration. User names are used as file names
+          for the keys, so they must be file-name-safe. Authentication
+          is enabled only when at least one user is defined.
         '';
       };
 
