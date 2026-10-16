@@ -68,7 +68,7 @@ in
       };
       models = {
         "master" = {
-          model = "openrouter/mistralai/devstral";
+          model = "openrouter/mistralai/devstral-2512";
         };
       };
     };
