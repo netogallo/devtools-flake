@@ -1,0 +1,9 @@
+Setup custom authentication for litellm.
+* Add an option to define users in the litellm configuration ("lite-llm/config.nix"). The key *is not* part of these options. 
+* The launch wrapper, defined in "lite-llm/setup.nix", will check the list of defined users and generate random keys before starting
+  litellm. Keys should be re-used if there were generated previously.
+* A custom litellm authenticator will be defined based on the users and credentials. The authenticator
+  will check if the request matches a known user and key.
+* The litellm runtime runtime configuration, generated in "lite-llm/setup.nix", must enable the authenticator.
+  Note that that requires that the authenticator reside in the same directory as the yaml configuration.
+

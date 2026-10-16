@@ -1,0 +1,137 @@
+Complete the implementation. Below is a diff of what was started:
+
+diff --git a/flakeModule.nix b/flakeModule.nix
+index a134d98..e472fa7 100644
+--- a/flakeModule.nix
++++ b/flakeModule.nix
+@@ -5,6 +5,7 @@ let
+     ./neovim/default.nix
+     ./llm-netogallo/config.nix
+     ./lite-llm/config.nix
++    ./prelude/config.nix
+   ];
+ in
+ {
+diff --git a/journal/feature/agentic-dev/control/current_task.txt b/journal/feature/agentic-dev/control/current_task.txt
+index f77b922..039e2a5 100644
+--- a/journal/feature/agentic-dev/control/current_task.txt
++++ b/journal/feature/agentic-dev/control/current_task.txt
+@@ -1 +1 @@
+-llmlite configuration
++Implement llmlite launcher.
+diff --git a/lite-llm/config.nix b/lite-llm/config.nix
+index 28bdbef..d0e0a33 100644
+--- a/lite-llm/config.nix
++++ b/lite-llm/config.nix
+@@ -36,6 +36,14 @@ let
+           to the llmlite instance.
+         '';
+       };
++
++      port = mkOption {
++        type = types.int;
++        description = ''
++          The port on which lite-llm will be served.
++        '';
++        default = 4000;
++      };
+     };
+   };
+   perSystem = _:
+diff --git a/lite-llm/setup.nix b/lite-llm/setup.nix
+index 4f4743b..d401e16 100644
+--- a/lite-llm/setup.nix
++++ b/lite-llm/setup.nix
+@@ -4,10 +4,11 @@ that result from a lite-llm configuration. Multiple named lite-llm
+ configurations can be present in a flake, each will result in
+ a separate set of attributes in the flake.
+ */
+-{ pkgs, lib, lite-llm-name, lite-llm, ... }:
++{ pkgs, lib, devtools-prelude, lite-llm-name, lite-llm, ... }:
+ let
+   dummy = pkgs.writeScript "dummy" ''
+     #!${pkgs.bash}/bin/bash
++    source "${devtools-prelude.get-config lite-llm-name}"
+     ${pkgs.cowsay}/bin/cowsay < ${lite-llm-config-yml}
+   '';
+ 
+@@ -64,9 +65,28 @@ let
+   ;
+ 
+   /**
+-  This wrapper sets up the environmental variables and subsequently
+-  launches lite llm.
++  This wrapper script runs lite llm with the configuration
++  defined by the 'lite-llm-config-yml' derivation. The
++  process proceeds as follows:
++    1. Source the tool specific environment using the
++      'devtools-prelude.get-config' function. This will
++      define the DEVTOOLS_CONFIG environmental variable
++      which points to the tool's configuration directory
++      that will be used for storing things like provider
++      API keys.
++    2. Based on the llm models defined in the config,
++      define the necessary environmental variables for
++      the API keys. The variables will be read from files
++      located in the tool's configuration directory. The
++      expectation is that the user will put the api keys
++      in the right files. If the file does not exist,
++      exit and inform the user where to save the key.
++      3. Launch litellm with the settings specified by
++        the config comming from the 'lite-llm' value.
++        The strucutre of this object is speciifed
++        in the ./config.nix file.
+   */
++  launch-lite-llm = null;
+ 
+ in
+ {
+diff --git a/prelude/config.nix b/prelude/config.nix
+index 19943e6..97130dc 100644
+--- a/prelude/config.nix
++++ b/prelude/config.nix
+@@ -12,7 +12,7 @@ let
+       export DEVTOOLS_CONFIG_GLOBAL="$DEVTOOLS_CONFIG_ROOT/private"
+ 
+       mkdir -p "$DEVTOOLS_CONFIG_GLOBAL"
+-      GITIGNORE="$DEVTOOLS_CONFIG_GLOBAL/.gitignore"
++      GITIGNORE="$DEVTOOLS_CONFIG_ROOT/.gitignore"
+ 
+       if [[ ! -e "$GITIGNORE" ]]; then
+         echo "private" >> "$GITIGNORE"
+@@ -22,6 +22,15 @@ let
+         echo -e "\033[31mWarning: '$GITIGNORE' is not a file. Ensure that '$DEVTOOLS_CONFIG_ROOT/private' is not commited. \0
+33[0m"
+       fi
+     '';
++
++    /**
++    This sets the environmental variables that development tools can
++    use to locate resources, such as the directory that will
++    be used to store user/session specific settings. This
++    script is meant to be sourced by the respective tool
++    before launching. The tool should provide it's name
++    in order to set the variables propertly.
++    */
+     get-config = name:
+       pkgs.writeScript "get-config-for-${name}" ''
+       #!${pkgs.bash}/bin/bash
+@@ -35,8 +44,8 @@ let
+     ;
+   in
+     {
+-      options.development-tools.global-config = {
+-        get-config-directory
++      config._module.args.devtools-prelude = {
++        inherit get-config;
+       };
+     }
+   ;
+@@ -55,7 +64,7 @@ in
+             added inside the config directory to ensure it does not get
+             accidentally added to VCS.
+           '';
+-          default = ".development-tools-config";
++          default = "$HOME/.config/development-tools-config";
+         };
+       };

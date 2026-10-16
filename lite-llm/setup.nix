@@ -108,14 +108,17 @@ let
             try:
                 with open(os.path.join(users_dir, user + ".key")) as key_file:
                     if key_file.read().strip() == api_key:
-                        return api_key
+                        return UserAPIKeyAuth(api_key=api_key)
             except OSError:
                 continue
         raise invalid_api_key()
   '';
 
+  master-key-name = "LITELLM_MASTER_KEY";
+
   lite-llm-config = {
     model_list = lib.attrValues (lib.mapAttrs to-model-config lite-llm.models);
+    master_key = "os.environ/${master-key-name}";
   } // lib.optionalAttrs (user-names != [ ]) {
     general_settings.custom_auth = "custom_auth.user_api_key_auth";
   };
@@ -205,6 +208,24 @@ let
   ;
 
   /**
+  Set the lite-llm master key. This key will be generated if
+  missing. Afterwards it will be loaded into the environment.
+  */
+  master-key-setup =
+  ''
+  master_key="$DEVTOOLS_CONFIG/${master-key-name}.key"
+
+  if [[ ! -f "$master_key" ]]; then
+    ${pkgs.openssl}/bin/openssl rand -hex 32 > "$master_key"
+    chmod 600 "$users_dir/$master_key"
+    echo "Generated the master authentication key at $master_key"
+  fi
+
+  export ${master-key-name}="$(<$master_key)"
+  ''
+  ;
+
+  /**
   The shell commands that prepare the authentication keys of all
   the users defined in the configuration. The directory holding
   the keys is exported through the 'LITE_LLM_USERS_DIR'
@@ -258,6 +279,8 @@ let
     set -e
 
     source "${devtools-prelude.get-config lite-llm-name}"
+
+    ${master-key-setup}
 
     ${api-key-setup}
 
