@@ -68,40 +68,56 @@ let
   /**
   A litellm custom authenticator that validates the bearer token
   of each request against the keys of the users defined in the
-  configuration. The keys are stored in the tool's configuration
-  directory, one file per user, under the directory pointed to by
-  the 'LITE_LLM_USERS_DIR' environmental variable, which is
-  exported by the launch script before litellm starts. Only the
-  user names are embedded in the module. This ensures that
-  removing a user from the configuration revokes their access
-  even if their key file still exists.
+  configuration. litellm 1.89.0 no longer ships the class based
+  'CustomAuth' interface; the supported interface is the module
+  level 'user_api_key_auth' coroutine. litellm calls it with the
+  incoming request and the presented api key: raising an exception
+  rejects the request, returning a key allows it. The keys are
+  stored in the tool's configuration directory, one file per user,
+  under the directory pointed to by the 'LITE_LLM_USERS_DIR'
+  environmental variable, which is exported by the launch script
+  before litellm starts. Only the user names are embedded in the
+  module, so removing a user from the configuration revokes their
+  access even if their key file still exists.
   */
   custom-auth = pkgs.writeText "custom_auth.py" ''
     import os
+    from typing import Union
 
-    from litellm.integrations.custom_auth import CustomAuth
+    from fastapi import Request
+
+    from litellm.proxy._types import ProxyException, UserAPIKeyAuth
 
     USERS = ${builtins.toJSON user-names}
 
-    class UserKeyAuth(CustomAuth):
-        def auth(self, token: str) -> bool:
-            users_dir = os.environ.get("LITE_LLM_USERS_DIR", "")
-            if not token or not users_dir:
-                return False
-            for user in USERS:
-                try:
-                    with open(os.path.join(users_dir, user + ".key")) as key_file:
-                        if key_file.read().strip() == token:
-                            return True
-                except OSError:
-                    continue
-            return False
+    def invalid_api_key() -> ProxyException:
+        return ProxyException(
+            message="Invalid API key",
+            type="invalid_request_error",
+            param="api_key",
+            code=401,
+        )
+
+    async def user_api_key_auth(
+        request: Request, api_key: str
+    ) -> Union[UserAPIKeyAuth, str]:
+        users_dir = os.environ.get("LITE_LLM_USERS_DIR", "")
+        if not api_key or not users_dir:
+            raise invalid_api_key()
+        for user in USERS:
+            try:
+                with open(os.path.join(users_dir, user + ".key")) as key_file:
+                    if key_file.read().strip() == api_key:
+                        return api_key
+            except OSError:
+                continue
+        raise invalid_api_key()
   '';
 
   lite-llm-config = {
     model_list = lib.attrValues (lib.mapAttrs to-model-config lite-llm.models);
   } // lib.optionalAttrs (user-names != [ ]) {
-    general_settings.custom_auth = "custom_auth.UserKeyAuth";
+    general_settings.custom_auth = "custom_auth.user_api_key_auth";
   };
 
   lite-llm-config-yml =
