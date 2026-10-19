@@ -60,4 +60,15 @@ in
         };
       };
     };
+
+    config.development-tools.llm-agent.prelude-llm-agent = {
+      enable = true;
+      provider = with config.development-tools.llm-providers.prelude-lite-llm; {
+        endpoint = endpoint;
+        user = users.alice;
+        models = {
+          main = models.master;
+        };
+      };
+    };
   }
