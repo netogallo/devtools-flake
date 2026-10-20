@@ -84,6 +84,15 @@ let
   in
     { inherit imports; }
   ;
+
+  to-llm-provider = name: llm-config: {
+    endpoint = {
+      type = "litellm";
+      url = "";
+    };
+  };
+
+  llm-providers = lib.mapAttrs to-llm-provider config.development-tools.lite-llm;
 in
   {
     options = {
@@ -99,4 +108,6 @@ in
 
       perSystem = mkPerSystemOption perSystem;
     };
+
+    config.development-tools.llm-providers = llm-providers;
   }

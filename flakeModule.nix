@@ -6,6 +6,8 @@ let
     ./llm-netogallo/config.nix
     ./lite-llm/config.nix
     ./prelude/config.nix
+    ./llm-providers/config.nix
+    ./llm-providers/prelude.nix
   ];
 in
 {
