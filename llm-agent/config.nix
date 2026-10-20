@@ -1,4 +1,4 @@
-{ lib, ... }:
+{ lib, provider-type, ... }:
 let
   inherit (lib) mkOption types;
 
@@ -13,10 +13,21 @@ let
         default = false;
       };
 
-      provider = {
-      };
+      provider = provider-type;
     };
   };
+  perSystem = _:
+  let
+    imports = lib.attrValues (
+      lib.mapAttrs to-llm-agent top.config.development-tools.llm-agent
+    );
+    to-llm-agent = llm-agent-name: llm-agent: {
+      imports = [ ./setup.nix ];
+      config._module.args = { inherit llm-agent-name llm-agent; };
+    };
+  in
+    { inherit imports; }
+  ;
 in
   {
     options.development-tools.llm-agent = mkOption {
