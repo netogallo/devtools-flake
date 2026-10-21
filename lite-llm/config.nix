@@ -85,10 +85,17 @@ let
     { inherit imports; }
   ;
 
+  /**
+  Translate a lite-llm instance into a generic llm provider entry.
+  The url points at the QEMU user-networking host alias ('10.0.2.2')
+  so that clients running inside a QEMU VM can reach the instance
+  running on the host machine. Clients running on the host itself
+  should use '127.0.0.1' instead.
+  */
   to-llm-provider = name: llm-config: {
     endpoint = {
       type = "litellm";
-      url = "";
+      url = "http://10.0.2.2:${toString llm-config.port}";
     };
   };
 
