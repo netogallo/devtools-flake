@@ -92,12 +92,27 @@ let
   running on the host machine. Clients running on the host itself
   should use '127.0.0.1' instead.
   */
-  to-llm-provider = name: llm-config: {
-    endpoint = {
-      type = "litellm";
-      url = "http://10.0.2.2:${toString llm-config.port}";
+  to-llm-provider = provider: llm-config:
+  let
+    to-provider-user = user: _config: {
+      inherit provider;
+      name = user;
     };
-  };
+    to-provider-model = model: _config: {
+      name = model;
+    };
+  in
+    {
+      endpoint = {
+        type = "litellm";
+        url = "http://10.0.2.2:${toString llm-config.port}";
+      };
+
+      users = lib.mapAttrs to-provider-user llm-config.users;
+
+      models = lib.mapAttrs to-provider-model llm-config.models;
+    }
+  ;
 
   llm-providers = lib.mapAttrs to-llm-provider config.development-tools.lite-llm;
 in

@@ -5,7 +5,7 @@ is run inside a QEMU VM running NixOS; the agent connects to the
 llm provider specified in the configuration (e.g. a lite-llm
 instance running on the host machine).
 */
-{ pkgs, lib, devtools-prelude, llm-agent-name, llm-agent, ... }:
+{ config, pkgs, lib, devtools-prelude, llm-agent-name, llm-agent, ... }:
 let
   /**
   The python environment that runs the agent. The 'langchain'
@@ -27,6 +27,10 @@ let
   provider-endpoint-url = llm-agent.provider.endpoint.url;
   provider-model = llm-agent.provider.models.main.model;
   provider-user = llm-agent.provider.user.name;
+  key-script =
+    with llm-agent.provider.user;
+    config.development-tools.llm-providers.${provider}.users.${user}.key-script
+  ; 
 
   /**
   The script implementing the deep agent. All secrets are read
@@ -108,7 +112,7 @@ let
         # the guest through 9p. The mount is read-only; the agent
         # only needs to read its authentication key.
         virtualisation.qemu.options = [
-          "-virtfs local,path=/devtools-config,mount_tag=devtools-config,security_model=none,readonly=on"
+          ''-virtfs local,path="$DEVTOOLS_CONFIG",mount_tag=devtools-config,security_model=none,readonly=on''
         ];
         fileSystems."/run/agent-keys" = {
           device = "devtools-config";
@@ -158,6 +162,10 @@ let
       echo "If a lite-llm instance provides this model, launch it on the host first." >&2
     fi
 
+    user_key=$(${key-script})
+    user_key_dir="$DEVTOOLS_CONFIG/users/"
+    mkdir -p "$user_key_dir"
+    echo "$user_key" > "$user_key_dir/${provider-user}.key"
     export DEVTOOLS_CONFIG
     exec ${vm.config.system.build.vm}/bin/run-${pkgs.system}-vm
   '';

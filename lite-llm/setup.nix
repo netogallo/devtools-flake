@@ -226,6 +226,13 @@ let
   ;
 
   /**
+  Binding that contains the script text resposible for
+  defining the variables used to locate directories
+  where user setup is stored.
+  */
+  users-env = ''users_dir="$DEVTOOLS_CONFIG/users"'';
+
+  /**
   The shell commands that prepare the authentication keys of all
   the users defined in the configuration. The directory holding
   the keys is exported through the 'LITE_LLM_USERS_DIR'
@@ -238,7 +245,7 @@ let
     then ""
     else
     ''
-    users_dir="$DEVTOOLS_CONFIG/users"
+    ${users-env}
     mkdir -p "$users_dir"
     export LITE_LLM_USERS_DIR="$users_dir"
     ${lib.concatStrings (map to-user-key-setup user-names)}
@@ -291,10 +298,34 @@ let
       --port "${toString lite-llm.port}"
   '';
 
+  to-provider-user = user-name: _:
+  let
+    key-script-text = ''
+      #!${pkgs.bash}/bin/bash
+      set -e
+      source "${devtools-prelude.get-config lite-llm-name}"
+      ${users-env}
+      user_key="$users_dir/${user}.key"
+
+      if [[ ! -f "$user_key" ]]; then
+        echo -e "\033[31mError: Key for '${user}' not available, did you launch the llm-provider?\033[0m" >&2
+        exit 1
+      else
+        cat "$user_key"
+      fi
+    '';
+    key-script = pkgs.writeScript "key-script-${user-name}" key-script-text;
+  in
+    { inherit key-script; }
+  ;
 in
 {
   config.apps."devtools/${lite-llm-name}" = {
     type = "app";
     program = "${launch-lite-llm}";
+  };
+
+  config.development-tools.llm-providers.${lite-llm-name} = {
+    users = lib.foldAttrs to-provider-user {} (lib.map (name: { ${name} = name; }) user-names);
   };
 }

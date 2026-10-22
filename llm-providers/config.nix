@@ -1,7 +1,7 @@
 { lib, llm-providers, ... }:
 let
-  inherit (lib) mkOption types;
-  inherit (llm-providers) model-type user-type endpoint-type;
+  inherit (lib) mkOption types mkPerSystemOptions;
+  inherit (llm-providers) model-type user-type endpoint-type provider-system-type;
   /**
   The spec of an llm provider is meant to outline what
   attributes are expected from an llm provider.
@@ -31,6 +31,24 @@ let
       default = {};
     };
   };
+
+  perSystem = _:
+  let
+    x = 42;
+  in
+    {
+      options.development-tools.llm-providers = mkOption {
+        type = types.attrsOf provider-system-type;
+        description = ''
+          This option set holds all the attributes that an llm-provider
+          will make available on a per-system basis. Theese attribtues
+          are used by the consumers of an llm provider to setup the
+          configuration to the provider.
+        '';
+        default = {};
+      };
+    }
+  ;
 in
   {
     options.development-tools.llm-providers = mkOption {
@@ -43,4 +61,6 @@ in
       '';
       default = {};
     };
+
+    options.perSystem = mkPerSystemOptions perSystem;
   }

@@ -1,4 +1,4 @@
-{ lib, provider-type, ... }:
+top@{ lib, provider-type, ... }:
 let
   inherit (lib) mkOption types;
 
