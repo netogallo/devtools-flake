@@ -1,0 +1,4 @@
+Create tool that spawns an qemu vm. The configuration and setup live in ./llm-agent. Considerations:
+- An instance of a LangChain deep agent will be spawned in the vm
+- The deep agent should connect to the specified llm provider.
+- For demostration purposes, the agent will be given a dummy task.

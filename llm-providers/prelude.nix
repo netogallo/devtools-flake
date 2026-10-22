@@ -26,6 +26,14 @@ let
         match the key under which this field is stored.
       '';
     };
+    provider = mkOption {
+      type = types.str;
+      description = ''
+        The name of the provider that defines this user. This is used
+        by client applications to locate the right user attributes in
+        the per-system components.
+      '';
+    };
   };
 
   endpoint-type = types.submodule {
@@ -59,11 +67,36 @@ let
       main = model-type;
     };
   };
+
+  user-system-type = types.submodule {
+    key-script = mkOption {
+      type = types.str;
+      description = ''
+        A shell script that can be used to print the user's key
+        to the standard output. This script will be run by the
+        client during startup in order to obtain the key that
+        is to be used to authenticate with the llm provider.
+      '';
+    };
+  };
+
+  provider-system-type = types.submodule {
+    users = mkOption {
+      type = types.attrsOf user-system-type;
+      description = ''
+        This field exposes all the attributes that llm clients
+        will use in order to create applications that connect
+        to the llm provider as a given user.
+      '';
+      default = {};
+    };
+  };
 in
   {
     config._module.args = {
       llm-providers = {
-        inherit endpoint-type model-type user-type provider-type;
+        inherit endpoint-type model-type user-type provider-type
+          provider-system-type user-system-type;
       };
     };
   }

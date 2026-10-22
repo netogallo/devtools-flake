@@ -8,6 +8,7 @@ let
     ./prelude/config.nix
     ./llm-providers/config.nix
     ./llm-providers/prelude.nix
+    ./llm-agent/config.nix
   ];
 in
 {
