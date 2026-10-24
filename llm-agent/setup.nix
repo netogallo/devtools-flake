@@ -5,7 +5,16 @@ is run inside a QEMU VM running NixOS; the agent connects to the
 llm provider specified in the configuration (e.g. a lite-llm
 instance running on the host machine).
 */
-{ config, pkgs, lib, devtools-prelude, llm-agent-name, llm-agent, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  devtools-prelude,
+  llm-agent-name,
+  llm-agent,
+  nixpkgs,
+  ...
+}:
 let
   /**
   The python environment that runs the agent. The 'langchain'
@@ -29,7 +38,7 @@ let
   provider-user = llm-agent.provider.user.name;
   key-script =
     with llm-agent.provider.user;
-    config.development-tools.llm-providers.${provider}.users.${user}.key-script
+    config.development-tools.llm-providers.${provider}.users.${name}.key-script
   ; 
 
   /**
@@ -86,60 +95,56 @@ let
   '';
 
   /**
-  The nixpkgs evaluation used to build the guest system. The
-  'pkgs' module argument of a flake-parts per-system module is
-  already system specific, so re-importing nixpkgs at the same
-  system yields a consistent evaluation.
-  */
-  nixpkgs' = import pkgs.path { system = pkgs.system; };
-
-  /**
   The NixOS configuration of the guest VM. The agent runs as a
   systemd service; the host's private configuration directory
   (holding the provider authentication keys) is shared read-only
   through a 9p mount so that secrets never enter the nix store
   or the QEMU command line.
   */
-  vm = nixpkgs'.lib.nixosSystem {
-    system = pkgs.system;
+  vm = nixpkgs.lib.nixosSystem {
     modules = [
-      "${pkgs.path}/nixos/modules/virtualisation/qemu-vm.nix"
       {
-        virtualisation.memorySize = 2048;
-        virtualisation.cores = 2;
-
-        # Share the host's private configuration directory with
-        # the guest through 9p. The mount is read-only; the agent
-        # only needs to read its authentication key.
-        virtualisation.qemu.options = [
-          ''-virtfs local,path="$DEVTOOLS_CONFIG",mount_tag=devtools-config,security_model=none,readonly=on''
+        imports = [
+          "${nixpkgs}/nixos/modules/virtualisation/qemu-vm.nix"
         ];
-        fileSystems."/run/agent-keys" = {
-          device = "devtools-config";
-          fsType = "9p";
-          options = [ "trans=virtio" "version=9p2000.L" "ro" ];
-        };
+        config = {
+          nixpkgs.hostPlatform = pkgs.system;
+          virtualisation.memorySize = 2048;
+          virtualisation.cores = 2;
 
-        # The agent service. Non-secret parameters are baked in;
-        # the api key is read from the shared directory at runtime.
-        systemd.services.llm-agent = {
-          description = "LangChain deep agent";
-          wantedBy = [ "multi-user.target" ];
-          after = [ "network-online.target" ];
-          wants = [ "network-online.target" ];
-          environment = {
-            OPENAI_BASE_URL = provider-endpoint-url;
-            OPENAI_MODEL = provider-model;
-            AGENT_USER = provider-user;
-            AGENT_KEYS_DIR = "/run/agent-keys";
+          # Share the host's private configuration directory with
+          # the guest through 9p. The mount is read-only; the agent
+          # only needs to read its authentication key.
+          virtualisation.qemu.options = [
+            ''-virtfs local,path="$DEVTOOLS_CONFIG",mount_tag=devtools-config,security_model=none,readonly=on''
+          ];
+          fileSystems."/run/agent-keys" = {
+            device = "devtools-config";
+            fsType = "9p";
+            options = [ "trans=virtio" "version=9p2000.L" "ro" ];
           };
-          serviceConfig = {
-            Type = "oneshot";
-            RemainAfterExit = true;
+
+          # The agent service. Non-secret parameters are baked in;
+          # the api key is read from the shared directory at runtime.
+          systemd.services.llm-agent = {
+            description = "LangChain deep agent";
+            wantedBy = [ "multi-user.target" ];
+            after = [ "network-online.target" ];
+            wants = [ "network-online.target" ];
+            environment = {
+              OPENAI_BASE_URL = provider-endpoint-url;
+              OPENAI_MODEL = provider-model;
+              AGENT_USER = provider-user;
+              AGENT_KEYS_DIR = "/run/agent-keys";
+            };
+            serviceConfig = {
+              Type = "oneshot";
+              RemainAfterExit = true;
+            };
+            script = ''
+              exec ${agent-python}/bin/python ${agent-script}
+            '';
           };
-          script = ''
-            exec ${agent-python}/bin/python ${agent-script}
-          '';
         };
       }
     ];

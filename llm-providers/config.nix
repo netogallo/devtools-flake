@@ -1,34 +1,43 @@
-{ lib, llm-providers, ... }:
+{ flake-parts-lib, lib, llm-providers, ... }:
 let
-  inherit (lib) mkOption types mkPerSystemOptions;
+  inherit (flake-parts-lib) mkPerSystemOption;
+  inherit (lib) mkOption types;
   inherit (llm-providers) model-type user-type endpoint-type provider-system-type;
   /**
   The spec of an llm provider is meant to outline what
   attributes are expected from an llm provider.
   */
   spec = types.submodule {
-    endpoint = endpoint-type;
+    options = {
+      endpoint = mkOption {
+        type = endpoint-type;
+        description = ''
+          This allows the llm-provider to declare what endpoint
+          should be used to connect with the llm provider.
+        '';
+      };
 
-    users = mkOption {
-      type = types.attrsOf user-type;
-      description = ''
-        This field is used to specify what users are offered
-        by the llm provider. Clients wishing to use the llm
-        provider should rely on items from this field in
-        order to authenticate with the llm provider.
-      '';
-      default = {};
-    };
+      users = mkOption {
+        type = types.attrsOf user-type;
+        description = ''
+          This field is used to specify what users are offered
+          by the llm provider. Clients wishing to use the llm
+          provider should rely on items from this field in
+          order to authenticate with the llm provider.
+        '';
+        default = {};
+      };
 
-    models = mkOption {
-      type = types.attrsOf model-type;
-      description = ''
-        This field is used by the provider to indicate what llm
-        models are available through the provider. The information
-        in this field will be used by clients to indicate which
-        model they wish to use.
-      '';
-      default = {};
+      models = mkOption {
+        type = types.attrsOf model-type;
+        description = ''
+          This field is used by the provider to indicate what llm
+          models are available through the provider. The information
+          in this field will be used by clients to indicate which
+          model they wish to use.
+        '';
+        default = {};
+      };
     };
   };
 
@@ -62,5 +71,5 @@ in
       default = {};
     };
 
-    options.perSystem = mkPerSystemOptions perSystem;
+    options.perSystem = mkPerSystemOption perSystem;
   }

@@ -19,38 +19,42 @@ let
   to the llm provider.
   */
   user-type = types.submodule {
-    name = mkOption {
-      type = types.str;
-      description = ''
-        The username to be used for authentication purposes. This should
-        match the key under which this field is stored.
-      '';
-    };
-    provider = mkOption {
-      type = types.str;
-      description = ''
-        The name of the provider that defines this user. This is used
-        by client applications to locate the right user attributes in
-        the per-system components.
-      '';
+    options = {
+      name = mkOption {
+        type = types.str;
+        description = ''
+          The username to be used for authentication purposes. This should
+          match the key under which this field is stored.
+        '';
+      };
+      provider = mkOption {
+        type = types.str;
+        description = ''
+          The name of the provider that defines this user. This is used
+          by client applications to locate the right user attributes in
+          the per-system components.
+        '';
+      };
     };
   };
 
   endpoint-type = types.submodule {
-    type = mkOption {
-      type = types.str;
-      description = ''
-        This field can be used by the llm provider to indicate
-        its identity. This is mainly used to determine what
-        type of API is offered by the provider.
-      '';
-    };
-    url = mkOption {
-      type = types.str;
-      description = ''
-        This field is used to spacify how the llm provider
-        can be located.
-      '';
+    options = {
+      type = mkOption {
+        type = types.str;
+        description = ''
+          This field can be used by the llm provider to indicate
+          its identity. This is mainly used to determine what
+          type of API is offered by the provider.
+        '';
+      };
+      url = mkOption {
+        type = types.str;
+        description = ''
+          This field is used to spacify how the llm provider
+          can be located.
+        '';
+      };
     };
   };
 
@@ -61,34 +65,60 @@ let
   to use an llm model offered by an llm provider.
   */
   provider-type = types.submodule {
-    endpoint = endpoint-type;
-    user = user-type;
-    models = {
-      main = model-type;
+    options = {
+      endpoint = mkOption {
+        type = endpoint-type;
+        description = ''
+          Specifies the endpoint to be used to reach the
+          llm provider.
+        '';
+      };
+      user = mkOption {
+        type = user-type;
+        description = ''
+          Specifies the user that should be used to authenticate
+          with the endpoint.
+        '';
+      };
+      models = {
+        main = mkOption {
+          type = model-type;
+          description = ''
+            Specify what is the main llm model to be used by the
+            llm agent. This model may spawn workers if needed.
+            The models that will be available as workers are
+            specified in this section as well.
+          '';
+        };
+      };
     };
   };
 
   user-system-type = types.submodule {
-    key-script = mkOption {
-      type = types.str;
-      description = ''
-        A shell script that can be used to print the user's key
-        to the standard output. This script will be run by the
-        client during startup in order to obtain the key that
-        is to be used to authenticate with the llm provider.
-      '';
+    options = {
+      key-script = mkOption {
+        type = types.str;
+        description = ''
+          A shell script that can be used to print the user's key
+          to the standard output. This script will be run by the
+          client during startup in order to obtain the key that
+          is to be used to authenticate with the llm provider.
+        '';
+      };
     };
   };
 
   provider-system-type = types.submodule {
-    users = mkOption {
-      type = types.attrsOf user-system-type;
-      description = ''
-        This field exposes all the attributes that llm clients
-        will use in order to create applications that connect
-        to the llm provider as a given user.
-      '';
-      default = {};
+    options = {
+      users = mkOption {
+        type = types.attrsOf user-system-type;
+        description = ''
+          This field exposes all the attributes that llm clients
+          will use in order to create applications that connect
+          to the llm provider as a given user.
+        '';
+        default = {};
+      };
     };
   };
 in

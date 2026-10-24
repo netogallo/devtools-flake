@@ -305,16 +305,17 @@ let
       set -e
       source "${devtools-prelude.get-config lite-llm-name}"
       ${users-env}
-      user_key="$users_dir/${user}.key"
+      user_key="$users_dir/${user-name}.key"
 
       if [[ ! -f "$user_key" ]]; then
-        echo -e "\033[31mError: Key for '${user}' not available, did you launch the llm-provider?\033[0m" >&2
+        echo -e "\033[31mError: Key for '${user-name}' not available, did you launch the llm-provider?\033[0m" >&2
         exit 1
       else
         cat "$user_key"
       fi
     '';
-    key-script = pkgs.writeScript "key-script-${user-name}" key-script-text;
+    key-script-drv = pkgs.writeScript "key-script-${user-name}" key-script-text;
+    key-script = "${key-script-drv}";
   in
     { inherit key-script; }
   ;
