@@ -1,5 +1,7 @@
-top@{ lib, provider-type, ... }:
+top@{ inputs, flake-parts-lib, lib, llm-providers, ... }:
 let
+  inherit (llm-providers) provider-type;
+  inherit (flake-parts-lib) mkPerSystemOption;
   inherit (lib) mkOption types;
 
   spec = types.submodule {
@@ -13,7 +15,13 @@ let
         default = false;
       };
 
-      provider = provider-type;
+      provider = mkOption {
+        type = provider-type;
+        description = ''
+          This option is used to specify the provider that
+          will be used to communicate with the llm agent.
+        '';
+      };
     };
   };
   perSystem = _:
@@ -26,20 +34,25 @@ let
       config._module.args = { inherit llm-agent-name llm-agent; };
     };
   in
-    { inherit imports; }
-  ;
+  {
+    inherit imports;
+    config._module.args = { inherit (inputs) nixpkgs; };
+  };
 in
   {
-    options.development-tools.llm-agent = mkOption {
-      type = types.attrsOf spec;
-      description = ''
-        The 'llm-agent' development tool easily allows setting
-        up sandboxed environments to run autonomus agents within
-        the context of the repository.
+    options = {
+      development-tools.llm-agent = mkOption {
+        type = types.attrsOf spec;
+        description = ''
+          The 'llm-agent' development tool easily allows setting
+          up sandboxed environments to run autonomus agents within
+          the context of the repository.
 
-        It also provides options to easily enhance the
-        agents with MCPs or additional tools.
-      '';
-      default = {};
+          It also provides options to easily enhance the
+          agents with MCPs or additional tools.
+        '';
+        default = {};
+      };
+      perSystem = mkPerSystemOption perSystem;
     };
   }
