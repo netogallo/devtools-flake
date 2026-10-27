@@ -39,7 +39,7 @@ let
   key-script =
     with llm-agent.provider.user;
     config.development-tools.llm-providers.${provider}.users.${name}.key-script
-  ; 
+  ;
 
   /**
   The script implementing the deep agent. All secrets are read
@@ -127,13 +127,7 @@ let
           ];
           boot.initrd.availableKernelModules = [ "9p" "9pnet_virtio" ];
           boot.kernelModules = [ "9p" "9pnet_virtio" ];
-          #fileSystems."/run/agent-keys" = {
-          #  device = "devtools-config";
-          #  fsType = "ext4";
-          #  fakeOption = "no";
-          #  fsType = "9p";
-          #  options = [ "trans=virtio" "version=9p2000.L" "ro" "nofail" ];
-          #};
+
           users.users.nixos.hashedPassword = "$y$j9T$Ij.zgsiQ9UbG805vuIjz0/$qiZCBxun/3VJrAic6AGusQTlX4VN2W.Mp4LrFPrFZ6B";
           users.users.nixos.group = "nixos";
           users.users.nixos.extraGroups = [ "wheel" ];
@@ -145,15 +139,31 @@ let
             MaxLevelConsole=info
           '';
 
+          # The 9p mount of the shared key directory, defined as an
+          # explicit systemd mount unit (rather than a fileSystems
+          # entry) so it is generated directly as a unit and can be
+          # depended upon by the agent service.
+          systemd.mounts = [
+            {
+              what = "devtools-config";
+              where = "/run/agent-keys";
+              type = "9p";
+              options = "trans=virtio,version=9p2000.L,ro";
+              wantedBy = [ "multi-user.target" ];
+            }
+          ];
+
           # The agent service. Non-secret parameters are baked in;
           # the api key is read from the shared directory at runtime.
           # The service's output is forwarded to the kernel log so
           # that it shows up on the serial console, i.e. in the
-          # terminal that launched the VM.
+          # terminal that launched the VM. The service requires the
+          # 9p mount to be up before it starts.
           systemd.services.llm-agent = {
             description = "LangChain deep agent";
             wantedBy = [ "multi-user.target" ];
-            after = [ "network-online.target" ];
+            requires = [ "run-run-agent-keys.mount" ];
+            after = [ "network-online.target" "run-run-agent-keys.mount" ];
             wants = [ "network-online.target" ];
             environment = {
               OPENAI_BASE_URL = provider-endpoint-url;
