@@ -112,6 +112,13 @@ let
           virtualisation.memorySize = 2048;
           virtualisation.cores = 2;
 
+          # Run the VM without a graphical display; the guest's
+          # serial port (ttyS0) is connected directly to the
+          # terminal that launched the VM, and the kernel console
+          # is placed on that serial line.
+          virtualisation.graphics = false;
+          boot.kernelParams = [ "console=ttyS0" ];
+
           # Share the host's private configuration directory with
           # the guest through 9p. The mount is read-only; the agent
           # only needs to read its authentication key.
@@ -130,6 +137,9 @@ let
 
           # The agent service. Non-secret parameters are baked in;
           # the api key is read from the shared directory at runtime.
+          # The service's output is forwarded to the kernel log so
+          # that it shows up on the serial console, i.e. in the
+          # terminal that launched the VM.
           systemd.services.llm-agent = {
             description = "LangChain deep agent";
             wantedBy = [ "multi-user.target" ];
@@ -144,6 +154,8 @@ let
             serviceConfig = {
               Type = "oneshot";
               RemainAfterExit = true;
+              StandardOutput = "kmsg";
+              StandardError = "kmsg";
             };
             script = ''
               exec ${agent-python}/bin/python ${agent-script}
