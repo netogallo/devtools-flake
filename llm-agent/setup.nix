@@ -116,8 +116,8 @@ let
           # serial port (ttyS0) is connected directly to the
           # terminal that launched the VM, and the kernel console
           # is placed on that serial line.
-          #virtualisation.graphics = false;
-          #boot.kernelParams = [ "console=ttyS0" ];
+          virtualisation.graphics = false;
+          boot.kernelParams = [ "console=ttyS0" ];
 
           # Share the host's private configuration directory with
           # the guest through 9p. The mount is read-only; the agent
@@ -146,7 +146,7 @@ let
           systemd.mounts = [
             {
               what = "devtools-config";
-              where = "/run/agent-keys";
+              where = "/run/agent_keys";
               type = "9p";
               options = "trans=virtio,version=9p2000.L,ro";
               wantedBy = [ "multi-user.target" ];
@@ -162,14 +162,13 @@ let
           systemd.services.llm-agent = {
             description = "LangChain deep agent";
             wantedBy = [ "multi-user.target" ];
-            requires = [ "run-run-agent-keys.mount" ];
-            after = [ "network-online.target" "run-run-agent-keys.mount" ];
+            after = [ "network-online.target" ];
             wants = [ "network-online.target" ];
             environment = {
               OPENAI_BASE_URL = provider-endpoint-url;
               OPENAI_MODEL = provider-model;
               AGENT_USER = provider-user;
-              AGENT_KEYS_DIR = "/run/agent-keys";
+              AGENT_KEYS_DIR = "/run/agent_keys";
             };
             serviceConfig = {
               Type = "oneshot";
