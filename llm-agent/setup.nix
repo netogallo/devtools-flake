@@ -116,8 +116,8 @@ let
           # serial port (ttyS0) is connected directly to the
           # terminal that launched the VM, and the kernel console
           # is placed on that serial line.
-          virtualisation.graphics = false;
-          boot.kernelParams = [ "console=ttyS0" ];
+          #virtualisation.graphics = false;
+          #boot.kernelParams = [ "console=ttyS0" ];
 
           # Share the host's private configuration directory with
           # the guest through 9p. The mount is read-only; the agent
@@ -125,15 +125,25 @@ let
           virtualisation.qemu.options = [
             ''-virtfs local,path="$DEVTOOLS_CONFIG",mount_tag=devtools-config,security_model=none,readonly=on''
           ];
-          fileSystems."/run/agent-keys" = {
-            device = "devtools-config";
-            fsType = "9p";
-            options = [ "trans=virtio" "version=9p2000.L" "ro" ];
-          };
+          boot.initrd.availableKernelModules = [ "9p" "9pnet_virtio" ];
+          boot.kernelModules = [ "9p" "9pnet_virtio" ];
+          #fileSystems."/run/agent-keys" = {
+          #  device = "devtools-config";
+          #  fsType = "ext4";
+          #  fakeOption = "no";
+          #  fsType = "9p";
+          #  options = [ "trans=virtio" "version=9p2000.L" "ro" "nofail" ];
+          #};
           users.users.nixos.hashedPassword = "$y$j9T$Ij.zgsiQ9UbG805vuIjz0/$qiZCBxun/3VJrAic6AGusQTlX4VN2W.Mp4LrFPrFZ6B";
           users.users.nixos.group = "nixos";
-          users.groups.nixos = {};
+          users.users.nixos.extraGroups = [ "wheel" ];
+          users.groups.nixos = { };
           users.users.nixos.isNormalUser = true;
+
+          services.journald.extraConfig = ''
+            ForwardToConsole=yes
+            MaxLevelConsole=info
+          '';
 
           # The agent service. Non-secret parameters are baked in;
           # the api key is read from the shared directory at runtime.
@@ -154,12 +164,13 @@ let
             serviceConfig = {
               Type = "oneshot";
               RemainAfterExit = true;
-              StandardOutput = "kmsg";
-              StandardError = "kmsg";
+              #StandardOutput = "kmsg";
+              #StandardError = "kmsg";
             };
             script = ''
               exec ${agent-python}/bin/python ${agent-script}
             '';
+            #unitConfig.OnFailure = [ "poweroff.target" ];
           };
         };
       }
@@ -188,6 +199,7 @@ let
     mkdir -p "$user_key_dir"
     echo "$user_key" > "$user_key_dir/${provider-user}.key"
     export DEVTOOLS_CONFIG
+    echo "Running: ${vm.config.system.build.vm}/bin/run-nixos-vm"
     exec ${vm.config.system.build.vm}/bin/run-nixos-vm
   '';
 
