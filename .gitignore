@@ -7,3 +7,4 @@ scratch
 .#nixos-root.lck
 opencode-root
 .#opencode-root.lck
+*.qcow2

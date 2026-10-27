@@ -3,13 +3,15 @@ let
   inherit (lib) types mkOption;
 
   model-type = types.submodule {
-    name = mkOption {
-      type = types.str;
-      description = ''
-        A name used to identify the llm model. Clients wishing to
-        send requests via this model will use this name as reference
-        to the model.
-      '';
+    options = {
+      name = mkOption {
+        type = types.str;
+        description = ''
+          A name used to identify the llm model. Clients wishing to
+          send requests via this model will use this name as reference
+          to the model.
+        '';
+      };
     };
   };
 

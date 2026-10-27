@@ -34,7 +34,7 @@ let
   requests are forwarded to the instance running on the host).
   */
   provider-endpoint-url = llm-agent.provider.endpoint.url;
-  provider-model = llm-agent.provider.models.main.model;
+  provider-model = llm-agent.provider.models.main.name;
   provider-user = llm-agent.provider.user.name;
   key-script =
     with llm-agent.provider.user;
@@ -123,6 +123,10 @@ let
             fsType = "9p";
             options = [ "trans=virtio" "version=9p2000.L" "ro" ];
           };
+          users.users.nixos.hashedPassword = "$y$j9T$Ij.zgsiQ9UbG805vuIjz0/$qiZCBxun/3VJrAic6AGusQTlX4VN2W.Mp4LrFPrFZ6B";
+          users.users.nixos.group = "nixos";
+          users.groups.nixos = {};
+          users.users.nixos.isNormalUser = true;
 
           # The agent service. Non-secret parameters are baked in;
           # the api key is read from the shared directory at runtime.
@@ -172,7 +176,7 @@ let
     mkdir -p "$user_key_dir"
     echo "$user_key" > "$user_key_dir/${provider-user}.key"
     export DEVTOOLS_CONFIG
-    exec ${vm.config.system.build.vm}/bin/run-${pkgs.system}-vm
+    exec ${vm.config.system.build.vm}/bin/run-nixos-vm
   '';
 
 in
