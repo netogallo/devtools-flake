@@ -22,6 +22,39 @@ let
           will be used to communicate with the llm agent.
         '';
       };
+
+      git = mkOption {
+        type = types.submodule {
+          options = {
+            enable = mkOption {
+              type = types.bool;
+              description = ''
+                Enable the git repository inside the agent VM.
+                Pushes to the repository trigger the agent: the
+                pushed branch is checked out into a working
+                directory and the agent is spawned there.
+              '';
+              default = false;
+            };
+
+            authorizedKeys = mkOption {
+              type = types.listOf types.str;
+              description = ''
+                SSH public keys authorized to push to the
+                agent VM's git repository. The corresponding
+                private keys must be available on the host
+                pushing to the VM.
+              '';
+              default = [ ];
+            };
+          };
+        };
+        description = ''
+          Configuration of the git repository hosted inside
+          the agent VM.
+        '';
+        default = { };
+      };
     };
   };
   perSystem = _:
