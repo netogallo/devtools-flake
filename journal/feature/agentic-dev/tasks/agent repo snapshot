@@ -1,0 +1,4 @@
+When the 'llm-agent' spawns, the following should happen:
+1. A snapshot of the CWD should be taken.
+2. The snapshot should be made available to the agent inside the QEMU vm.
+3. The agent should be able to modify the contents without affecting files in the host machine.

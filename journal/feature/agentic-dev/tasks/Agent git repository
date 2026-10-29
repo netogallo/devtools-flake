@@ -1,0 +1,9 @@
+The QM vm spawned by llm-agent should do the following:
+1. Create a git repository. Changes will be pushed to the repository via ssh.
+2. The 'llm-agent' service monitors the git repository.
+3. Whenever changes are pushed to the git repository, the corresponding
+   branch should be checked out into a directory.
+4. A Langchain deep agent is spawned, with said directory as its working
+   directory.
+5. At present, the agent will be given a dummy task of summarizing the changes
+   that happened in the last commit.

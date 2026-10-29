@@ -8,3 +8,4 @@ scratch
 opencode-root
 .#opencode-root.lck
 *.qcow2
+scratch
