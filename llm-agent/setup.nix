@@ -52,7 +52,7 @@ let
   pipeline) is enabled for this agent.
   */
   git-enable = llm-agent.git.enable;
-  git-authorized-keys = llm-agent.git.authorizedKeys;
+  git-authorized-keys = llm-agent.git.authorized-keys;
 
   /**
   Guest-side paths of the git repository, the spool directory
@@ -401,19 +401,19 @@ let
     #!${pkgs.bash}/bin/bash
     set -e
 
-    # Parse the arguments; docopts turns the usage text into shell
-    # variables ('run', 'push', 'key', 'refspec').
-    args=$(${pkgs.docopts}/bin/docopts "$@" : <<EOF
+    usage="
     Usage: launch-${llm-agent-name} run
-           launch-${llm-agent-name} push [--key=<key>] [<refspec>]
+           launch-${llm-agent-name} push [<refspec>]
 
     Modes:
       run   Boot the agent VM.
       push  Push the current branch (or <refspec>) of the host
             repository to the agent VM's git repository.
-    EOF
-    ) || exit 1
-    eval "$args"
+    "
+
+    # Parse the arguments; docopts turns the usage text into shell
+    # variables ('run', 'push', 'key', 'refspec').
+    eval "$(${pkgs.docopts}/bin/docopts -h "$usage" : "$@")"
 
     if [ "$run" = "true" ]; then
       source "${devtools-prelude.get-config llm-agent-name}"
@@ -433,10 +433,7 @@ let
     fi
 
     if [ "$push" = "true" ]; then
-      source "${devtools-prelude.get-config llm-agent-name}"
-      key="''${key:-$DEVTOOLS_CONFIG/agent-git/id_ed25519}"
       refspec="''${refspec:-HEAD:refs/heads/$(${pkgs.git}/bin/git rev-parse --abbrev-ref HEAD)}"
-      export GIT_SSH_COMMAND="${pkgs.openssh}/bin/ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
       ${pkgs.git}/bin/git push "ssh://git@localhost:${toString git-ssh-port}${repo-path}" "$refspec"
     fi
   '';

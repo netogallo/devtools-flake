@@ -1,0 +1,3 @@
+The 'llm-agent' should make the code in the current repository avaialbe to
+the agent. The current proposal is to expose it to the qemu vm as a copy
+on write filesystem.

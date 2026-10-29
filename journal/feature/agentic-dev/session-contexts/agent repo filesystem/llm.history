@@ -1,0 +1,2587 @@
+TO LLM 2026-10-28T13:43:05
+-------
+SYSTEM Act as an expert code analyst.
+SYSTEM Answer questions about the supplied code.
+SYSTEM Always reply to the user in English.
+SYSTEM 
+SYSTEM If you need to describe code changes, do so *briefly*.
+SYSTEM 
+SYSTEM Reply in English.
+-------
+USER Here are some READ ONLY files, provided for your reference.
+USER Do not edit these files!
+USER 
+USER journal/feature/agentic-dev/tasks/agent repo filesystem
+USER ```
+USER The 'llm-agent' should make the code in the current repository avaialbe to
+USER the agent. The current proposal is to expose it to the qemu vm as a copy
+USER on write filesystem.
+USER ```
+USER 
+USER ../../../../tmp/tmp.YhEiCpknvp
+USER ```
+USER The user is working on a task which has been defined in 'journal/feature/agentic-dev/tasks/agent repo filesystem'. This
+USER file will be read into the context for your reference. Your job is
+USER to assist the user with any request related tho the task.
+USER ```
+-------
+ASSISTANT Ok, I will use these files as references.
+-------
+USER I am working with you on code in a git repository.
+USER Here are summaries of some files present in my git repo.
+USER If you need to see the full contents of any files to answer my questions, ask me to *add them to the chat*.
+USER 
+USER .gitignore
+USER 
+USER LICENSE
+USER 
+USER examples/flakeModule.nix
+USER 
+USER flake.lock
+USER 
+USER flake.nix
+USER 
+USER flakeModule.nix
+USER 
+USER journal/feature/agentic-dev/control/current_task.txt
+USER 
+USER journal/feature/agentic-dev/session-contexts/Implement llmlite launcher./llm.history
+USER 
+USER journal/feature/agentic-dev/session-contexts/Implement llmlite launcher./session.md
+USER 
+USER journal/feature/agentic-dev/session-contexts/langchain sandbox/llm.history
+USER 
+USER journal/feature/agentic-dev/session-contexts/langchain sandbox/session.md
+USER 
+USER journal/feature/agentic-dev/session-contexts/litellm auth/llm.history
+USER 
+USER journal/feature/agentic-dev/session-contexts/litellm auth/session.md
+USER 
+USER journal/feature/agentic-dev/session-contexts/llmlite configuration/llm.history
+USER 
+USER journal/feature/agentic-dev/session-contexts/llmlite configuration/session.md
+USER 
+USER journal/feature/agentic-dev/tasks/Implement llmlite launcher.
+USER 
+USER journal/feature/agentic-dev/tasks/langchain sandbox
+USER 
+USER journal/feature/agentic-dev/tasks/litellm auth
+USER 
+USER journal/feature/agentic-dev/tasks/llmlite configuration
+USER 
+USER journal/feature/llm-netogallo/control/current_task.txt
+USER 
+USER journal/feature/llm-netogallo/session-contexts/Flags for llm-netogallo/llm.history
+USER 
+USER journal/feature/llm-netogallo/session-contexts/Flags for llm-netogallo/session.md
+USER 
+USER journal/feature/llm-netogallo/session-contexts/Task report/session.md
+USER 
+USER journal/feature/llm-netogallo/tasks/Flags for llm-netogallo
+USER 
+USER journal/feature/llm-netogallo/tasks/Task report
+USER 
+USER lite-llm/config.nix
+USER 
+USER lite-llm/setup.nix
+USER 
+USER llm-agent/config.nix
+USER 
+USER llm-agent/setup.nix
+USER 
+USER llm-netogallo/config.nix
+USER 
+USER llm-netogallo/setup.nix
+USER 
+USER llm-providers/config.nix
+USER 
+USER llm-providers/prelude.nix
+USER 
+USER neovim/configuration-spec.nix
+USER 
+USER neovim/default.nix
+USER 
+USER neovim/keymaps/keymaps-config.nix
+USER 
+USER neovim/keymaps/keymaps.nix
+USER 
+USER neovim/keymaps/prelude.nix
+USER 
+USER neovim/neovim.nix
+USER 
+USER neovim/plugins/indent-blankline/config.nix
+USER 
+USER neovim/plugins/indent-blankline/prelude.nix
+USER 
+USER neovim/plugins/indent-blankline/setup.nix
+USER 
+USER neovim/plugins/telescope/config.nix
+USER 
+USER neovim/plugins/telescope/setup.nix
+USER 
+USER neovim/prelude.nix
+USER 
+USER neovim/prelude/nix-lua.nix
+USER 
+USER neovim/to-neovim-config.nix
+USER 
+USER prelude/config.nix
+USER 
+USER presets/flakeModule.nix
+USER 
+USER presets/prelude-preset.nix
+-------
+ASSISTANT Ok, I won't try and edit those files without asking first.
+-------
+USER I am not sharing the full contents of any files with you yet.
+-------
+ASSISTANT Ok.
+-------
+USER Can you analyse the viability of the proposal?
+USER 
+USER Reply in English.
+LLM RESPONSE 2026-10-28T13:43:39
+ASSISTANT <thinking-content-7bbeb8e1441453ad999a0bbba8a46d4b>
+ASSISTANT 
+ASSISTANT The user is asking about the viability of the proposal described in `journal/feature/agentic-dev/tasks/agent repo filesystem`:
+ASSISTANT 
+ASSISTANT "The 'llm-agent' should make the code in the current repository available to the agent. The current proposal is to expose it to the qemu vm as a copy on write filesystem."
+ASSISTANT 
+ASSISTANT I don't have the full contents of the files, but I have summaries. Let me think about what I know:
+ASSISTANT 
+ASSISTANT - The repo is a Nix flake-based repository with modules like `llm-agent`, `llm-netogallo`, `lite-llm`, `llm-providers`, `neovim`, `presets`, `prelude`.
+ASSISTANT - `llm-agent/config.nix` and `llm-agent/setup.nix` exist — so there's an `llm-agent` component.
+ASSISTANT - The task is about making the current repository's code available to the agent running inside a QEMU VM, via a copy-on-write filesystem.
+ASSISTANT 
+ASSISTANT I should analyze the viability of exposing the repo to a QEMU VM as a copy-on-write filesystem. Let me think about the options:
+ASSISTANT 
+ASSISTANT 1. **9p filesystem (virtfs)**: QEMU supports 9p passthrough filesystems (`-virtfs local,path=...,mount_tag=...`). The guest mounts it with `mount -t 9p -o trans=virtio ...`. However, 9p is NOT copy-on-write. It's shared. But you could overlay it with overlayfs inside the guest to get COW semantics: mount the 9p share as read-only lower layer, and a tmpfs or disk-backed upper layer. That's a common pattern.
+ASSISTANT 
+ASSISTANT 2. **NBD (network block device)**: Export a qcow2 image via NBD. qcow2 is inherently copy-on-write if you use a backing file. So you could create a qcow2 overlay whose backing file is a read-only base image containing the repo snapshot. The guest sees a block device; writes go to the overlay. This is genuinely COW at the block level.
+ASSISTANT 
+ASSISTANT 3. **virtiofs**: Modern replacement for 9p, requires virtiofsd on the host. Shared, not COW, but again can be layered with overlayfs in the guest.
+ASSISTANT 
+ASSISTANT 4. **DMG/ISO read-only**: Just burn the repo into an ISO or squashfs and attach as a read-only disk, then overlayfs on top in the guest.
+ASSISTANT 
+ASSISTANT 5. **SSHFS / NFS**: network filesystems, more complexity.
+ASSISTANT 
+ASSISTANT 6. **Building the repo into the VM image itself**: Since this is a Nix repo, the flake could build a VM image that includes the repo source (e.g., via `pkgs.src` or copying the flake source into the image). Then use overlayfs/tmpfs for COW at runtime. This is very Nix-idiomatic: the repo content becomes part of the closure.
+ASSISTANT 
+ASSISTANT Considerations for viability:
+ASSISTANT 
+ASSISTANT - **Nix specifics**: The repo is a flake. The flake source can be referenced in derivations. Building a VM with the repo baked in is reproducible. Alternatively, at runtime, pass the path via 9p/virtiofs.
+ASSISTANT - **COW semantics needed**: The agent should be able to modify files without affecting the host repo. Options: overlayfs in guest (lower = read-only share, upper = tmpfs), or qcow2 backing file.
+ASSISTANT - **Performance**: 9p is notoriously slow and buggy (especially with many small files, git operations). virtiofs is better. Git operations on 9p can be problematic (locking, mmap). For an agent doing lots of file reads/writes and possibly running git commands, this matters.
+ASSISTANT - **Isolation/safety**: The point of the VM sandbox (this seems related to "langchain sandbox" session) is to let the agent run code safely. COW gives safety: host repo untouched, agent can experiment, changes can be diffed and extracted.
+ASSISTANT - **Extracting results**: Need a way to get the diff out — e.g., shared folder for output, or `git diff` piped out via the agent channel, or committing to a branch.
+ASSISTANT - **Freshness**: If the repo changes on host while VM runs, 9p/virtiofs would reflect changes (live), baked-in image would be a snapshot. For agent tasks, snapshot is probably fine and even desirable (deterministic).
+ASSISTANT - **Implementation complexity in Nix**: 
+ASSISTANT   - 9p: QEMU args via `-virtfs`, guest mount via a systemd service; straightforward in NixOS VMs (there's `virtualisation.sharedDirectories` in nixos/lib/make-vm.nix? Actually there's `virtualisation.sharedDirs`? Let me recall: NixOS VMs have `virtualisation.sharedDirectories`? There's `vmSharedDir`? In nixos/lib/testing, there's `virtualisation.sharedDirs` option? I recall `virtualisation.sharedDirectories = { ... }` exists in recent NixOS (23.05+?) mapping to 9p mounts. There's definitely the `qemu-vm.nix` module with `virtualisation.qemu.options` where you can add `-virtfs` flags, and `fileSystems` entries with `fsType = "9p"`.
+ASSISTANT   - qcow2 backing: `pkgs.vmTools` or custom QEMU wrapper; create overlay with `qemu-img create -f qcow2 -b base.qcow2 -F qcow2 overlay.qcow2`. Base image would need to be built containing the repo — e.g., a squashfs or ext4 image built via a derivation (`pkgs.runCommand` with `mkfs.ext4` or `squashfsTools`). This is more work but gives true block-level COW and good performance.
+ASSISTANT   - overlayfs in guest: trivial NixOS config: `fileSystems."/repo" = { overlay options }` — actually overlayfs mounts in NixOS config via `fileSystems."/" = { fsType = "overlay"; options = [ "lowerdir=..." "upperdir=..." "workdir=..." ]; };` This works.
+ASSISTANT 
+ASSISTANT - **Where does llm-agent fit?** `llm-agent/config.nix` and `setup.nix` presumably define the agent runtime. The agent presumably launches a QEMU VM (there's mention of qemu vm). The task says "make the code in the current repository available to the agent" — i.e., the agent runs inside the VM and needs the repo.
+ASSISTANT 
+ASSISTANT - **Alternative simpler approaches**: 
+ASSISTANT   - Just copy the repo into the VM disk at build time (rsync into the image). COW not needed if the VM disk is ephemeral — the whole disk is effectively COW if using a tmpfs-backed or fresh qcow2 per run. Actually that's a key insight: if each VM run starts from a fresh copy of the repo (e.g., copied into a tmpfs or ephemeral disk at boot), you get "COW-like" semantics trivially — copy-on-boot rather than copy-on-write. The cost is copying the repo once per VM start, which for typical repo sizes (tens of MB) is negligible. This is much simpler than 9p or qcow2 backing chains.
+ASSISTANT   - Nix-y approach: include the repo source in the VM's Nix store (e.g., `environment.etc` or a symlink in `/root/repo` to a store path built from the flake source). Then bind-mount... but store is read-only; agent needs to write. So: copy from store to a writable location at boot (systemd service `cp -r --no-preserve` or `rsync`), or use overlayfs with lowerdir = store path (read-only, perfect as lower layer!) and upperdir = writable disk. overlayfs with a Nix store path as lowerdir is elegant: the store path is immutable, overlay gives COW for free. That's very idiomatic.
+ASSISTANT 
+ASSISTANT So the most viable design, in my view:
+ASSISTANT 1. Build the repo source as a store path (flake's `self.outPath` or a filtered source).
+ASSISTANT 2. In the VM (NixOS), mount overlayfs: lowerdir = `/nix/store/...-repo-source` (read-only), upperdir/workdir on a writable ephemeral filesystem (tmpfs or the VM's qcow2 disk).
+ASSISTANT 3. Result: agent sees a writable repo; host repo untouched; changes vanish when VM is discarded or can be extracted (diff upper vs lower, or `git diff` if `.git` included).
+ASSISTANT 
+ASSISTANT Caveats:
+ASSISTANT - `.git` directory: if you want the agent to use git (commit, diff), you need `.git` in the image. Flake source filtering typically excludes `.git` (flake source is a filtered copy without `.git` unless `self` refers to a git checkout... actually `self.outPath` for a git tree includes... no — the flake source in the store does NOT include `.git`; it's a filtered copy). So you'd need to copy the working tree including `.git` at runtime, or use `builtins.path` with a filter that keeps `.git`... but `.git` in store is problematic (huge, and store paths are immutable — git needs to write to `.git` for commits). Options: copy `.git` to writable location too, or have the agent work without git and extract a patch via diff. Or pass the repo via 9p at runtime to get the live `.git`.
+ASSISTANT - Uncommitted changes: flake source in store only includes committed files (git-tracked). If the user has uncommitted work, the store path won't have it. A runtime copy (9p/virtiofs or scp) captures the working tree as-is. This is a real consideration for an agentic dev tool: you want the agent to see your current working tree, including uncommitted changes. So a runtime transfer (9p/virtiofs/sshfs/NBD) may actually be preferable to baking into the image. Or: `git stash create`? No. Simplest: at VM launch, rsync the working tree into the VM via a shared directory or ssh.
+ASSISTANT - 9p issues: git on 9p can be slow; mmap issues historically; but for moderate use it's OK. virtiofsd requires a helper daemon; in NixOS tests virtiofs is supported.
+ASSISTANT - Overlayfs on top of 9p lowerdir: possible but 9p as lowerdir can be flaky.
+ASSISTANT 
+ASSISTANT Performance comparison:
+ASSISTANT - Baked-in store path + overlayfs: fastest (local disk in guest), fully deterministic, but snapshot at build time and no `.git`/uncommitted files.
+ASSISTANT - 9p/virtiofs + overlayfs upper: live view, includes uncommitted changes, slower I/O, more moving parts.
+ASSISTANT - qcow2 backing chain: block-level COW, good perf, but requires building a base image with the repo and managing overlay lifecycle; also snapshot semantics.
+ASSISTANT - Copy-on-boot (rsync from store or from 9p into tmpfs/disk): simple, includes everything if copied from live tree, cost = one copy per boot (usually fine).
+ASSISTANT 
+ASSISTANT Security/isolation: COW ensures the host repo is never mutated by the agent — good for the sandbox goal. But note: if using 9p in read-write mode, no protection; must mount read-only and layer. Also the agent could still exfiltrate... not relevant to this question.
+ASSISTANT 
+ASSISTANT Also consider: does the repo's structure support this? `llm-agent/config.nix` and `setup.nix` exist; presumably the VM is defined via NixOS `qemu-vm.nix` style (`virtualisation` options). The `presets/flakeModule.nix` and `flakeModule.nix` suggest a flake-parts setup. So implementing would mean adding options to the llm-agent module like `repoSource` and wiring VM config.
+ASSISTANT 
+ASSISTANT I should ask to see `llm-agent/config.nix` and `llm-agent/setup.nix` to give a more grounded analysis — the user said to ask if I need full contents. I can give the viability analysis now and offer to look deeper with those files.
+ASSISTANT 
+ASSISTANT Let me also think about what "copy on write filesystem" might mean in their head: possibly they mean exposing the repo as a read-only base with an overlay so agent edits don't persist to host. Or they might literally mean qcow2 COW. I should cover interpretations.
+ASSISTANT 
+ASSISTANT Also mention alternatives and a recommendation, plus risks:
+ASSISTANT 
+ASSISTANT Risks/gotchas list:
+ASSISTANT 1. 9p reliability with git (index locking, inotify doesn't work across 9p — file watching tools break).
+ASSISTANT 2. inotify: if the agent or tooling in the VM watches files (e.g., a dev server with hot reload), 9p/virtiofs events may not propagate; baked-in copy works fine.
+ASSISTANT 3. Flake evaluation inside VM: if the agent needs to run `nix build` on the repo inside the VM, it needs the flake + possibly network for inputs (or a substituted store). That's a bigger question: is the VM expected to build nix stuff? If yes, need flake inputs available — could copy the host's nix store? That's heavy. Maybe out of scope.
+ASSISTANT 4. Determinism/reproducibility: baking repo into image via store path is reproducible; runtime sharing is not.
+ASSISTANT 5. Extracting agent's changes: need a story — e.g., agent produces a patch; or share an "output" dir writable via 9p; or commit in VM and push via git protocol to host.
+ASSISTANT 6. Disk space: overlay upper dir growth; tmpfs limited by VM RAM.
+ASSISTANT 7. Permissions/ownership: 9p mapping options (`security_model=none`/`mapped-xattr`), uid mapping issues — common pain point.
+ASSISTANT 8. Nix store path as lowerdir: overlayfs requires lowerdir read-only — store paths are perfect. But note: overlayfs lowerdir must be on same... no, lowerdir can be any filesystem including the store's. Fine. One gotcha: Nix store paths can contain files with weird perms; fine.
+ASSISTANT 
+ASSISTANT Also: the repo is small (a Nix config repo), so performance is a non-issue for size; the main concerns are correctness (git, uncommitted changes) and workflow (getting results out).
+ASSISTANT 
+ASSISTANT Viability verdict: Yes, viable, with the caveat that "COW filesystem" should probably be implemented as overlayfs in the guest over a read-only lower layer, and the main design decision is how the lower layer gets the repo content (baked-in store path vs 9p/virtiofs live share vs copy-on-boot). Recommend: start with the simplest thing — copy the working tree into the VM at boot (or bake the flake source and rsync the dirty tree over), mount as lower for overlayfs if you want COW, or just plain copy if you don't need to preserve a pristine view.
+ASSISTANT 
+ASSISTANT Actually, let me reconsider: what does COW buy over copy-on-boot in this scenario? COW avoids copying unchanged files — only relevant for big repos. For a small Nix repo, copy-on-boot is simpler and equally safe. The genuine advantages of COW/overlay: (a) instant startup regardless of repo size, (b) easy diffing (upper layer = exactly the changes), (c) pristine lower always available for diff/reset. For an agentic dev tool, (b) and (c) are actually nice: you can compute the agent's changes by diffing upper vs lower, and reset by clearing upper.
+ASSISTANT 
+ASSISTANT I should structure the answer:
+ASSISTANT 1. Restate the proposal and assumptions (I haven't seen llm-agent/config.nix etc. — note that).
+ASSISTANT 2. Interpretations of "COW filesystem" and options with trade-offs (table maybe).
+ASSISTANT 3. Nix-specific integration notes.
+ASSISTANT 4. Key risks/gotchas.
+ASSISTANT 5. Verdict + recommendation.
+ASSISTANT 6. Offer: share llm-agent/config.nix, setup.nix, and maybe the session.md files for a grounded implementation sketch.
+ASSISTANT 
+ASSISTANT Keep it reasonably concise but thorough. Use headers and a table. The system prompt says "If you need to describe code changes, do so briefly" — this is an analysis question, not code changes, so prose is fine. Format: markdown with headers, a comparison table, bullet lists. Medium-long length is appropriate for a viability analysis. Avoid excessive length; aim for clarity.
+ASSISTANT 
+ASSISTANT </thinking-content-7bbeb8e1441453ad999a0bbba8a46d4b>
+ASSISTANT 
+ASSISTANT # Viability Analysis: Repo-as-COW-filesystem for `llm-agent`
+ASSISTANT 
+ASSISTANT **Caveat first:** I haven't seen the contents of `llm-agent/config.nix` / `setup.nix`, so I'm analyzing the proposal as stated in the task file, plus what the repo structure implies (Nix flake, flake-parts, a QEMU-based sandbox). If you add those files to the chat I can ground this in the actual code.
+ASSISTANT 
+ASSISTANT ## The core idea is sound
+ASSISTANT 
+ASSISTANT Giving the agent a writable view of the repo while the host copy stays pristine is exactly the right goal for a sandboxed agentic-dev workflow. "Copy-on-write" is a viable mechanism, but the term covers several quite different implementations, and the choice matters more than the concept.
+ASSISTANT 
+ASSISTANT ## Implementation options
+ASSISTANT 
+ASSISTANT | Approach | How | Pros | Cons |
+ASSISTANT |---|---|---|---|
+ASSISTANT | **overlayfs in guest, Nix store path as lowerdir** | Bake the flake source into the VM closure; mount `overlay` with `lowerdir=/nix/store/...-source`, upper/work on tmpfs or the VM disk | Very Nix-idiomatic; store path is immutable so it's a perfect lower layer; diffing upper vs. lower gives you the agent's changes for free; fast local I/O | Snapshot at build time: **no uncommitted changes, no `.git`** (flake source filtering drops both) |
+ASSISTANT | **9p (`-virtfs`) read-only share + overlayfs upper** | QEMU passthrough of the host working tree | Agent sees the *live* working tree, including dirty files and `.git` | 9p is slow and historically flaky with git (locking, mmap); no inotify across the boundary; uid/gid mapping pain (`security_model=`) |
+ASSISTANT | **virtiofs instead of 9p** | Same as above but via `virtiofsd` | Much more robust and faster than 9p | Requires running virtiofsd alongside QEMU; more plumbing in the launcher |
+ASSISTANT | **qcow2 backing-file chain** | Build a base image containing the repo; `qemu-img create -b base.qcow2` per run | True block-level COW; good performance; discarding the overlay = clean reset | Most machinery: you must build the base image, manage overlay lifecycle, and it's still a build-time snapshot |
+ASSISTANT | **Copy-on-boot** | systemd service copies the repo (from store path or a share) to a writable location at VM start | Trivially simple; captures live tree if copied from host; whole-disk-ephemeral gives the same safety guarantee | Not literally COW; one copy per boot (irrelevant for a repo this size); no pristine layer to diff against unless you keep one |
+ASSISTANT 
+ASSISTANT ## Key considerations for this specific repo
+ASSISTANT 
+ASSISTANT 1. **Repo size is a non-issue.** This is a Nix configuration repo, likely a few MB. The performance argument for COW (avoid copying unchanged data) barely applies. The real reasons to prefer overlayfs are *workflow* ones: a pristine lower layer to diff against, and O(1) reset by clearing the upper layer.
+ASSISTANT 
+ASSISTANT 2. **The uncommitted-changes problem is the real design decision.** A flake-built store path only contains *committed, tracked* files. For an agentic-dev tool, the agent almost certainly needs to see the user's current working tree. That pushes toward either a runtime share (9p/virtiofs) or a copy-at-launch, rather than baking the source into the image.
+ASSISTANT 
+ASSISTANT 3. **`.git` handling.** If the agent should run git commands (commit, diff, branch), it needs a writable `.git`, which neither the store path nor a read-only share provides. You'd copy `.git` into the writable layer at boot, or extract results as patches instead.
+ASSISTANT 
+ASSISTANT 4. **Getting results out.** COW protects the host, but you still need an egress path for the agent's work: a small writable shared directory, `git diff`/patches relayed through the agent channel, or a push to a host-side git remote. Worth deciding early, since it shapes the mount layout.
+ASSISTANT 
+ASSISTANT 5. **NixOS integration is easy either way.** `qemu-vm.nix`-style VMs accept extra QEMU options for `-virtfs`, `fileSystems` entries support both `9p` and `overlay` fsTypes, and a boot-time copy is a three-line systemd service. Nothing here fights the existing flake structure.
+ASSISTANT 
+ASSISTANT ## Verdict
+ASSISTANT 
+ASSISTANT **Viable, and a good fit — but I'd reframe it.** The valuable invariant is "agent gets a writable repo, host repo is never mutated, changes are extractable and discardable." Literal COW (qcow2 backing chains) is the most complex way to get that and buys little at this repo's scale.
+ASSISTANT 
+ASSISTANT My recommendation, in order of preference:
+ASSISTANT 
+ASSISTANT 1. **overlayfs with a read-only lower layer** (store path if a committed snapshot suffices; a read-only 9p/virtiofs mount if the live tree is needed), upper layer on ephemeral storage. Diff upper-vs-lower to extract the agent's changes.
+ASSISTANT 2. **Copy-on-boot** as the simplest fallback — honestly fine for this repo size, and much less machinery.
+ASSISTANT 
+ASSISTANT The main risks to flag in the task write-up: 9p + git flakiness if you go that route, missing uncommitted changes if you go the store-path route, and the still-undefined story for getting the agent's output back to the host.
+ASSISTANT 
+ASSISTANT If you add `llm-agent/config.nix` and `llm-agent/setup.nix` (and possibly the `langchain sandbox` session notes) to the chat, I can sketch how the chosen option would concretely slot into the existing module.
+TO LLM 2026-10-28T13:43:45
+-------
+SYSTEM Act as an expert code analyst.
+SYSTEM Answer questions about the supplied code.
+SYSTEM Always reply to the user in English.
+SYSTEM 
+SYSTEM If you need to describe code changes, do so *briefly*.
+SYSTEM 
+SYSTEM Reply in English.
+-------
+USER Here are some READ ONLY files, provided for your reference.
+USER Do not edit these files!
+USER 
+USER journal/feature/agentic-dev/tasks/agent repo filesystem
+USER ```
+USER The 'llm-agent' should make the code in the current repository avaialbe to
+USER the agent. The current proposal is to expose it to the qemu vm as a copy
+USER on write filesystem.
+USER ```
+USER 
+USER ../../../../tmp/tmp.YhEiCpknvp
+USER ```
+USER The user is working on a task which has been defined in 'journal/feature/agentic-dev/tasks/agent repo filesystem'. This
+USER file will be read into the context for your reference. Your job is
+USER to assist the user with any request related tho the task.
+USER ```
+-------
+ASSISTANT Ok, I will use these files as references.
+-------
+USER I am working with you on code in a git repository.
+USER Here are summaries of some files present in my git repo.
+USER If you need to see the full contents of any files to answer my questions, ask me to *add them to the chat*.
+USER 
+USER .gitignore
+USER 
+USER LICENSE
+USER 
+USER examples/flakeModule.nix
+USER 
+USER flake.lock
+USER 
+USER flake.nix
+USER 
+USER flakeModule.nix
+USER 
+USER journal/feature/agentic-dev/control/current_task.txt
+USER 
+USER journal/feature/agentic-dev/session-contexts/Implement llmlite launcher./llm.history
+USER 
+USER journal/feature/agentic-dev/session-contexts/Implement llmlite launcher./session.md
+USER 
+USER journal/feature/agentic-dev/session-contexts/langchain sandbox/llm.history
+USER 
+USER journal/feature/agentic-dev/session-contexts/langchain sandbox/session.md
+USER 
+USER journal/feature/agentic-dev/session-contexts/litellm auth/llm.history
+USER 
+USER journal/feature/agentic-dev/session-contexts/litellm auth/session.md
+USER 
+USER journal/feature/agentic-dev/session-contexts/llmlite configuration/llm.history
+USER 
+USER journal/feature/agentic-dev/session-contexts/llmlite configuration/session.md
+USER 
+USER journal/feature/agentic-dev/tasks/Implement llmlite launcher.
+USER 
+USER journal/feature/agentic-dev/tasks/langchain sandbox
+USER 
+USER journal/feature/agentic-dev/tasks/litellm auth
+USER 
+USER journal/feature/agentic-dev/tasks/llmlite configuration
+USER 
+USER journal/feature/llm-netogallo/control/current_task.txt
+USER 
+USER journal/feature/llm-netogallo/session-contexts/Flags for llm-netogallo/llm.history
+USER 
+USER journal/feature/llm-netogallo/session-contexts/Flags for llm-netogallo/session.md
+USER 
+USER journal/feature/llm-netogallo/session-contexts/Task report/session.md
+USER 
+USER journal/feature/llm-netogallo/tasks/Flags for llm-netogallo
+USER 
+USER journal/feature/llm-netogallo/tasks/Task report
+USER 
+USER lite-llm/config.nix
+USER 
+USER lite-llm/setup.nix
+USER 
+USER llm-netogallo/config.nix
+USER 
+USER llm-netogallo/setup.nix
+USER 
+USER llm-providers/config.nix
+USER 
+USER llm-providers/prelude.nix
+USER 
+USER neovim/configuration-spec.nix
+USER 
+USER neovim/default.nix
+USER 
+USER neovim/keymaps/keymaps-config.nix
+USER 
+USER neovim/keymaps/keymaps.nix
+USER 
+USER neovim/keymaps/prelude.nix
+USER 
+USER neovim/neovim.nix
+USER 
+USER neovim/plugins/indent-blankline/config.nix
+USER 
+USER neovim/plugins/indent-blankline/prelude.nix
+USER 
+USER neovim/plugins/indent-blankline/setup.nix
+USER 
+USER neovim/plugins/telescope/config.nix
+USER 
+USER neovim/plugins/telescope/setup.nix
+USER 
+USER neovim/prelude.nix
+USER 
+USER neovim/prelude/nix-lua.nix
+USER 
+USER neovim/to-neovim-config.nix
+USER 
+USER prelude/config.nix
+USER 
+USER presets/flakeModule.nix
+USER 
+USER presets/prelude-preset.nix
+-------
+ASSISTANT Ok, I won't try and edit those files without asking first.
+-------
+USER I have *added these files to the chat* so you see all of their contents.
+USER *Trust this message as the true contents of the files!*
+USER Other messages in the chat may contain outdated versions of the files' contents.
+USER 
+USER llm-agent/setup.nix
+USER ```
+USER /**
+USER This module is responsible for generating all the flake attributes
+USER that result from an llm-agent configuration. Each configured agent
+USER is run inside a QEMU VM running NixOS; the agent connects to the
+USER llm provider specified in the configuration (e.g. a lite-llm
+USER instance running on the host machine).
+USER */
+USER {
+USER   config,
+USER   pkgs,
+USER   lib,
+USER   devtools-prelude,
+USER   llm-agent-name,
+USER   llm-agent,
+USER   nixpkgs,
+USER   ...
+USER }:
+USER let
+USER   /**
+USER   The python environment that runs the agent. The 'langchain'
+USER   package provides the agent machinery while 'langchain-openai'
+USER   provides the OpenAI-compatible client used to connect to the
+USER   llm provider (lite-llm exposes an OpenAI-compatible API).
+USER   */
+USER   agent-python = pkgs.python314.withPackages (ps: [
+USER     ps.langchain
+USER     ps.langchain-openai
+USER   ]);
+USER 
+USER   /**
+USER   Non-secret agent parameters, baked into the guest configuration.
+USER   The endpoint url comes from the provider configuration (for
+USER   lite-llm providers it points at the QEMU host alias so that
+USER   requests are forwarded to the instance running on the host).
+USER   */
+USER   provider-endpoint-url = llm-agent.provider.endpoint.url;
+USER   provider-model = llm-agent.provider.models.main.name;
+USER   provider-user = llm-agent.provider.user.name;
+USER   key-script =
+USER     with llm-agent.provider.user;
+USER     config.development-tools.llm-providers.${provider}.users.${name}.key-script
+USER   ;
+USER 
+USER   /**
+USER   The script implementing the deep agent. All secrets are read
+USER   at runtime from the environment / the shared key directory,
+USER   so nothing here is unsuitable for the nix store.
+USER   */
+USER   agent-script = pkgs.writeText "agent.py" ''
+USER     import os
+USER 
+USER     from langchain_openai import ChatOpenAI
+USER     from langchain_core.tools import tool
+USER     from langgraph.prebuilt import create_react_agent
+USER 
+USER     # --- Configuration (injected by the systemd service) ---
+USER     base_url = os.environ["OPENAI_BASE_URL"]
+USER     model = os.environ["OPENAI_MODEL"]
+USER     user = os.environ["AGENT_USER"]
+USER 
+USER     # --- API key: read at runtime from the shared config dir ---
+USER     key_file = os.path.join(os.environ["AGENT_KEYS_DIR"], "users", user + ".key")
+USER     with open(key_file) as f:
+USER         api_key = f.read().strip()
+USER 
+USER     # --- LLM client via the provider's OpenAI-compatible API ---
+USER     llm = ChatOpenAI(
+USER         model=model,
+USER         base_url=base_url,
+USER         api_key=api_key,
+USER     )
+USER 
+USER     # --- Dummy task tools ---
+USER     @tool
+USER     def list_files(directory: str) -> str:
+USER         """List the files in the given directory."""
+USER         return "\n".join(sorted(os.listdir(directory)))
+USER 
+USER     tools = [list_files]
+USER 
+USER     # --- The deep agent, given a dummy task ---
+USER     agent = create_react_agent(llm, tools)
+USER 
+USER     result = agent.invoke({
+USER         "messages": [
+USER             ("user",
+USER              "List the files in /tmp and briefly summarize what you find.")
+USER         ]
+USER     })
+USER 
+USER     for message in result["messages"]:
+USER         content = getattr(message, "content", None)
+USER         if content:
+USER             print(content)
+USER   '';
+USER 
+USER   /**
+USER   The NixOS configuration of the guest VM. The agent runs as a
+USER   systemd service; the host's private configuration directory
+USER   (holding the provider authentication keys) is shared read-only
+USER   through a 9p mount so that secrets never enter the nix store
+USER   or the QEMU command line.
+USER   */
+USER   vm = nixpkgs.lib.nixosSystem {
+USER     modules = [
+USER       {
+USER         imports = [
+USER           "${nixpkgs}/nixos/modules/virtualisation/qemu-vm.nix"
+USER         ];
+USER         config = {
+USER           nixpkgs.hostPlatform = pkgs.system;
+USER           virtualisation.memorySize = 2048;
+USER           virtualisation.cores = 2;
+USER 
+USER           # Run the VM without a graphical display; the guest's
+USER           # serial port (ttyS0) is connected directly to the
+USER           # terminal that launched the VM, and the kernel console
+USER           # is placed on that serial line.
+USER           virtualisation.graphics = false;
+USER           boot.kernelParams = [ "console=ttyS0" ];
+USER 
+USER           # Share the host's private configuration directory with
+USER           # the guest through 9p. The mount is read-only; the agent
+USER           # only needs to read its authentication key.
+USER           virtualisation.qemu.options = [
+USER             ''-virtfs local,path="$DEVTOOLS_CONFIG",mount_tag=devtools-config,security_model=none,readonly=on''
+USER           ];
+USER           boot.initrd.availableKernelModules = [ "9p" "9pnet_virtio" ];
+USER           boot.kernelModules = [ "9p" "9pnet_virtio" ];
+USER 
+USER           users.users.nixos.hashedPassword = "$y$j9T$Ij.zgsiQ9UbG805vuIjz0/$qiZCBxun/3VJrAic6AGusQTlX4VN2W.Mp4LrFPrFZ6B";
+USER           users.users.nixos.group = "nixos";
+USER           users.users.nixos.extraGroups = [ "wheel" ];
+USER           users.groups.nixos = { };
+USER           users.users.nixos.isNormalUser = true;
+USER 
+USER           services.journald.extraConfig = ''
+USER             ForwardToConsole=yes
+USER             MaxLevelConsole=info
+USER           '';
+USER 
+USER           # The 9p mount of the shared key directory, defined as an
+USER           # explicit systemd mount unit (rather than a fileSystems
+USER           # entry) so it is generated directly as a unit and can be
+USER           # depended upon by the agent service.
+USER           systemd.mounts = [
+USER             {
+USER               what = "devtools-config";
+USER               where = "/run/agent_keys";
+USER               type = "9p";
+USER               options = "trans=virtio,version=9p2000.L,ro";
+USER               wantedBy = [ "multi-user.target" ];
+USER             }
+USER           ];
+USER 
+USER           # The agent service. Non-secret parameters are baked in;
+USER           # the api key is read from the shared directory at runtime.
+USER           # The service's output is forwarded to the kernel log so
+USER           # that it shows up on the serial console, i.e. in the
+USER           # terminal that launched the VM. The service requires the
+USER           # 9p mount to be up before it starts.
+USER           systemd.services.llm-agent = {
+USER             description = "LangChain deep agent";
+USER             wantedBy = [ "multi-user.target" ];
+USER             after = [ "network-online.target" ];
+USER             wants = [ "network-online.target" ];
+USER             environment = {
+USER               OPENAI_BASE_URL = provider-endpoint-url;
+USER               OPENAI_MODEL = provider-model;
+USER               AGENT_USER = provider-user;
+USER               AGENT_KEYS_DIR = "/run/agent_keys";
+USER             };
+USER             serviceConfig = {
+USER               Type = "oneshot";
+USER               RemainAfterExit = true;
+USER               #StandardOutput = "kmsg";
+USER               #StandardError = "kmsg";
+USER             };
+USER             script = ''
+USER               exec ${agent-python}/bin/python ${agent-script}
+USER             '';
+USER             #unitConfig.OnFailure = [ "poweroff.target" ];
+USER           };
+USER         };
+USER       }
+USER     ];
+USER   };
+USER 
+USER   /**
+USER   The host-side launch script. It sources the tool specific
+USER   environment (defining DEVTOOLS_CONFIG), warns if no llm
+USER   provider is reachable on the host, and boots the VM with
+USER   the private configuration directory shared through 9p.
+USER   */
+USER   launch-llm-agent = pkgs.writeScript "launch-${llm-agent-name}" ''
+USER     #!${pkgs.bash}/bin/bash
+USER     set -e
+USER 
+USER     source "${devtools-prelude.get-config llm-agent-name}"
+USER 
+USER     if ! ${pkgs.curl}/bin/curl -s "${provider-endpoint-url}" >/dev/null 2>&1; then
+USER       echo -e "\033[33mWarning: no llm provider seems to be reachable at '${provider-endpoint-url}'.\033[0m" >&2
+USER       echo "If a lite-llm instance provides this model, launch it on the host first." >&2
+USER     fi
+USER 
+USER     user_key=$(${key-script})
+USER     user_key_dir="$DEVTOOLS_CONFIG/users/"
+USER     mkdir -p "$user_key_dir"
+USER     echo "$user_key" > "$user_key_dir/${provider-user}.key"
+USER     export DEVTOOLS_CONFIG
+USER     echo "Running: ${vm.config.system.build.vm}/bin/run-nixos-vm"
+USER     exec ${vm.config.system.build.vm}/bin/run-nixos-vm
+USER   '';
+USER 
+USER in
+USER {
+USER   config.apps."devtools/${llm-agent-name}" = {
+USER     type = "app";
+USER     program = "${launch-llm-agent}";
+USER   };
+USER }
+USER ```
+USER 
+USER llm-agent/config.nix
+USER ```
+USER top@{ inputs, flake-parts-lib, lib, llm-providers, ... }:
+USER let
+USER   inherit (llm-providers) provider-type;
+USER   inherit (flake-parts-lib) mkPerSystemOption;
+USER   inherit (lib) mkOption types;
+USER 
+USER   spec = types.submodule {
+USER     options = {
+USER       enable = mkOption {
+USER         type = types.bool;
+USER         description = ''
+USER           Enable the llm agent. This will trigger the creation
+USER           of the scripts used to launch the agent.
+USER         '';
+USER         default = false;
+USER       };
+USER 
+USER       provider = mkOption {
+USER         type = provider-type;
+USER         description = ''
+USER           This option is used to specify the provider that
+USER           will be used to communicate with the llm agent.
+USER         '';
+USER       };
+USER     };
+USER   };
+USER   perSystem = _:
+USER   let
+USER     imports = lib.attrValues (
+USER       lib.mapAttrs to-llm-agent top.config.development-tools.llm-agent
+USER     );
+USER     to-llm-agent = llm-agent-name: llm-agent: {
+USER       imports = [ ./setup.nix ];
+USER       config._module.args = { inherit llm-agent-name llm-agent; };
+USER     };
+USER   in
+USER   {
+USER     inherit imports;
+USER     config._module.args = { inherit (inputs) nixpkgs; };
+USER   };
+USER in
+USER   {
+USER     options = {
+USER       development-tools.llm-agent = mkOption {
+USER         type = types.attrsOf spec;
+USER         description = ''
+USER           The 'llm-agent' development tool easily allows setting
+USER           up sandboxed environments to run autonomus agents within
+USER           the context of the repository.
+USER 
+USER           It also provides options to easily enhance the
+USER           agents with MCPs or additional tools.
+USER         '';
+USER         default = {};
+USER       };
+USER       perSystem = mkPerSystemOption perSystem;
+USER     };
+USER   }
+USER ```
+-------
+ASSISTANT Ok, I will use that as the true, current contents of the files.
+-------
+USER Can you analyse the viability of the proposal?
+-------
+ASSISTANT # Viability Analysis: Repo-as-COW-filesystem for `llm-agent`
+ASSISTANT 
+ASSISTANT **Caveat first:** I haven't seen the contents of `llm-agent/config.nix` / `setup.nix`, so I'm analyzing the proposal as stated in the task file, plus what the repo structure implies (Nix flake, flake-parts, a QEMU-based sandbox). If you add those files to the chat I can ground this in the actual code.
+ASSISTANT 
+ASSISTANT ## The core idea is sound
+ASSISTANT 
+ASSISTANT Giving the agent a writable view of the repo while the host copy stays pristine is exactly the right goal for a sandboxed agentic-dev workflow. "Copy-on-write" is a viable mechanism, but the term covers several quite different implementations, and the choice matters more than the concept.
+ASSISTANT 
+ASSISTANT ## Implementation options
+ASSISTANT 
+ASSISTANT | Approach | How | Pros | Cons |
+ASSISTANT |---|---|---|---|
+ASSISTANT | **overlayfs in guest, Nix store path as lowerdir** | Bake the flake source into the VM closure; mount `overlay` with `lowerdir=/nix/store/...-source`, upper/work on tmpfs or the VM disk | Very Nix-idiomatic; store path is immutable so it's a perfect lower layer; diffing upper vs. lower gives you the agent's changes for free; fast local I/O | Snapshot at build time: **no uncommitted changes, no `.git`** (flake source filtering drops both) |
+ASSISTANT | **9p (`-virtfs`) read-only share + overlayfs upper** | QEMU passthrough of the host working tree | Agent sees the *live* working tree, including dirty files and `.git` | 9p is slow and historically flaky with git (locking, mmap); no inotify across the boundary; uid/gid mapping pain (`security_model=`) |
+ASSISTANT | **virtiofs instead of 9p** | Same as above but via `virtiofsd` | Much more robust and faster than 9p | Requires running virtiofsd alongside QEMU; more plumbing in the launcher |
+ASSISTANT | **qcow2 backing-file chain** | Build a base image containing the repo; `qemu-img create -b base.qcow2` per run | True block-level COW; good performance; discarding the overlay = clean reset | Most machinery: you must build the base image, manage overlay lifecycle, and it's still a build-time snapshot |
+ASSISTANT | **Copy-on-boot** | systemd service copies the repo (from store path or a share) to a writable location at VM start | Trivially simple; captures live tree if copied from host; whole-disk-ephemeral gives the same safety guarantee | Not literally COW; one copy per boot (irrelevant for a repo this size); no pristine layer to diff against unless you keep one |
+ASSISTANT 
+ASSISTANT ## Key considerations for this specific repo
+ASSISTANT 
+ASSISTANT 1. **Repo size is a non-issue.** This is a Nix configuration repo, likely a few MB. The performance argument for COW (avoid copying unchanged data) barely applies. The real reasons to prefer overlayfs are *workflow* ones: a pristine lower layer to diff against, and O(1) reset by clearing the upper layer.
+ASSISTANT 
+ASSISTANT 2. **The uncommitted-changes problem is the real design decision.** A flake-built store path only contains *committed, tracked* files. For an agentic-dev tool, the agent almost certainly needs to see the user's current working tree. That pushes toward either a runtime share (9p/virtiofs) or a copy-at-launch, rather than baking the source into the image.
+ASSISTANT 
+ASSISTANT 3. **`.git` handling.** If the agent should run git commands (commit, diff, branch), it needs a writable `.git`, which neither the store path nor a read-only share provides. You'd copy `.git` into the writable layer at boot, or extract results as patches instead.
+ASSISTANT 
+ASSISTANT 4. **Getting results out.** COW protects the host, but you still need an egress path for the agent's work: a small writable shared directory, `git diff`/patches relayed through the agent channel, or a push to a host-side git remote. Worth deciding early, since it shapes the mount layout.
+ASSISTANT 
+ASSISTANT 5. **NixOS integration is easy either way.** `qemu-vm.nix`-style VMs accept extra QEMU options for `-virtfs`, `fileSystems` entries support both `9p` and `overlay` fsTypes, and a boot-time copy is a three-line systemd service. Nothing here fights the existing flake structure.
+ASSISTANT 
+ASSISTANT ## Verdict
+ASSISTANT 
+ASSISTANT **Viable, and a good fit — but I'd reframe it.** The valuable invariant is "agent gets a writable repo, host repo is never mutated, changes are extractable and discardable." Literal COW (qcow2 backing chains) is the most complex way to get that and buys little at this repo's scale.
+ASSISTANT 
+ASSISTANT My recommendation, in order of preference:
+ASSISTANT 
+ASSISTANT 1. **overlayfs with a read-only lower layer** (store path if a committed snapshot suffices; a read-only 9p/virtiofs mount if the live tree is needed), upper layer on ephemeral storage. Diff upper-vs-lower to extract the agent's changes.
+ASSISTANT 2. **Copy-on-boot** as the simplest fallback — honestly fine for this repo size, and much less machinery.
+ASSISTANT 
+ASSISTANT The main risks to flag in the task write-up: 9p + git flakiness if you go that route, missing uncommitted changes if you go the store-path route, and the still-undefined story for getting the agent's output back to the host.
+ASSISTANT 
+ASSISTANT If you add `llm-agent/config.nix` and `llm-agent/setup.nix` (and possibly the `langchain sandbox` session notes) to the chat, I can sketch how the chosen option would concretely slot into the existing module.
+-------
+USER I added these files to the chat: llm-agent/config.nix, llm-agent/setup.nix
+USER Let me know if there are others we should add.
+USER 
+USER Reply in English.
+LLM RESPONSE 2026-10-28T13:44:48
+ASSISTANT <thinking-content-7bbeb8e1441453ad999a0bbba8a46d4b>
+ASSISTANT 
+ASSISTANT The user has now added `llm-agent/config.nix` and `llm-agent/setup.nix` to the chat. I can see their contents from the earlier message. Let me analyze them in the context of the proposal (making the repo available to the agent via a copy-on-write filesystem).
+ASSISTANT 
+ASSISTANT Key observations from the files:
+ASSISTANT 
+ASSISTANT **setup.nix:**
+ASSISTANT - The agent runs in a QEMU VM (NixOS via `nixpkgs.lib.nixosSystem` with `qemu-vm.nix` module).
+ASSISTANT - Already uses a 9p mount (`-virtfs local,path="$DEVTOOLS_CONFIG",mount_tag=devtools-config,security_model=none,readonly=on`) to share the host's private config directory (containing API keys) read-only into the guest at `/run/agent_keys`.
+ASSISTANT - The launcher script (`launch-llm-agent`) sources the devtools prelude to get `DEVTOOLS_CONFIG`, writes the user key, then `exec`s the VM runner.
+ASSISTANT - The agent itself is a Python script using langchain `create_react_agent` with a dummy `list_files` tool, run as a systemd oneshot service.
+ASSISTANT - `virtualisation.graphics = false`, serial console, journald forwarding to console.
+ASSISTANT - The VM is built via `vm.config.system.build.vm` — the standard `run-nixos-vm` script.
+ASSISTANT 
+ASSISTANT **config.nix:**
+ASSISTANT - flake-parts style module, `mkPerSystemOption`, per-agent submodule with `enable` and `provider` options.
+ASSISTANT - Each configured agent maps to an import of `setup.nix` with `llm-agent-name` and `llm-agent` args.
+ASSISTANT - `nixpkgs` input passed as module arg.
+ASSISTANT 
+ASSISTANT Now, how does the proposal (repo as COW filesystem) fit into this concrete code?
+ASSISTANT 
+ASSISTANT Relevant points:
+ASSISTANT 
+ASSISTANT 1. **The 9p precedent already exists.** The code already shares `$DEVTOOLS_CONFIG` via 9p read-only. So adding another `-virtfs` for the repo is a natural extension. The launcher script already has host-side access to environment (it sources the prelude), so it can resolve the repo path (e.g., `$PWD` or a `$DEVTOOLS_REPO` variable) and pass it as `path=`.
+ASSISTANT 
+ASSISTANT 2. **The launcher runs from the repo.** The `run-nixos-vm` script is exec'd from the host; the current working directory of the launcher is presumably the repo root (flake app run via `nix run .#devtools/...`). Actually, `nix run` may change cwd? No — `nix run` runs the app in the current directory. So `$PWD` at launch time is where the user invoked it. That gives us the live working tree, including uncommitted changes and `.git`.
+ASSISTANT 
+ASSISTANT 3. **COW in the guest:** mount the 9p share read-only at e.g. `/mnt/repo-ro`, then overlayfs with upper/work on tmpfs or the VM disk at `/home/nixos/repo` (or `/workspace`). This gives:
+ASSISTANT    - Live working tree visible to agent (solves the uncommitted-changes problem I flagged).
+ASSISTANT    - Writable layer ephemeral per boot (qemu-vm.nix VMs use a temporary disk by default — actually `virtualisation.diskImage` is created in the current dir or tmp? In qemu-vm.nix, the VM disk is ephemeral: it uses a `qcow2` created at boot in `$TMPDIR` unless `virtualisation.useBootLoader`... Let me recall: `run-nixos-vm` creates `nixos.qcow2` in the current directory if `virtualisation.diskImage` is set... Actually in recent nixpkgs qemu-vm.nix, the default disk image is `./nixos.qcow2` in the current directory, created on first run and persistent across runs. Hmm. There's `virtualisation.diskImage = null` option now which makes it ephemeral in /tmp. The default historically: `virtualisation.diskImage = "./nixos.qcow2"`, persistent. Newer nixpkgs (24.05+?) default to null meaning ephemeral. I shouldn't be too assertive here; I can mention that whether the upper layer persists depends on the disk image config, and tmpfs upper is the safest for ephemerality.)
+ASSISTANT    - Diff extraction: `diff -r` between lower and upper, or run git in the overlay and `git diff` — but `.git` would be read-only in the lower layer, so git write operations (commit, index updates) would fail. Options: copy `.git` to writable layer at boot, or extract patches via diff.
+ASSISTANT 
+ASSISTANT 4. **9p + git concerns:** I flagged 9p flakiness with git. But note: if the agent only *reads* the repo through the 9p lower layer and writes to the overlay upper (which is local disk/tmpfs), git operations happen on the local overlay filesystem, not on 9p. The lower layer is only read. That mitigates most 9p+git issues. However, git status/diff needs to read `.git` objects — reading via 9p is fine. Writing the index would fail on ro lower... but in an overlay, writes to lower files are copied-up to the upper layer, so git *can* write the index — copy-up makes it work. Actually with overlayfs, writing to a file that exists only in lower triggers copy-up of that file to upper. So `git add`/index writes would work via copy-up. `.git` directory itself: creating new files in `.git` (new objects) — overlayfs allows creating new files in upper even if the directory exists in lower (the dir gets "merged" view). So git operations in an overlay over a ro 9p lower should mostly work, with copy-up semantics. Performance: 9p reads of many small files (git object store) can be slow, but for a repo this size it's fine.
+ASSISTANT 
+ASSISTANT 5. **security_model=none with 9p:** the existing mount uses `security_model=none`, which means file ownership is passed through as-is; files owned by the host user appear with host uid/gid in the guest. The agent service runs as root (no User= specified), so reads are fine. If the agent runs as `nixos` user, uid mismatch could block reads. Worth noting.
+ASSISTANT 
+ASSISTANT 6. **Alternative: bake repo into the VM closure.** Since the flake already builds the VM, one could add the flake source as a store path (e.g., `self.outPath` passed as module arg) and mount it as the overlay lowerdir. But flake source filtering drops uncommitted changes and `.git`. The current config.nix passes `nixpkgs` input but not `self` — adding `top.config.flake`/`self` would be needed. Also note: `config.nix` has access to `inputs` and `top` — `top.config._module.args` could carry `self`. But the live-tree requirement argues for the 9p approach.
+ASSISTANT 
+ASSISTANT 7. **Where to put the overlay:** The agent service currently depends on the 9p mount unit (`devtools-config` mount at `/run/agent_keys`). Wait — actually looking at the service: it has `environment.AGENT_KEYS_DIR = "/run/agent_keys"` but I don't see `requires`/`after` on the mount unit in the service config... The comment says "The service requires the 9p mount to be up before it starts" but the actual service only has `after = [ "network-online.target" ]`. Hmm, the mount is `wantedBy = [ "multi-user.target" ]` and the service is also `wantedBy = [ "multi-user.target" ]` — there's no explicit ordering between the mount and the service! The comment claims dependency but the code doesn't implement it. That's a bug worth flagging: the service should have `after = [ "run-agent_keys.mount" ]` and `requires = [ "run-agent_keys.mount" ]`. Actually systemd mount units are named by path: `run-agent_keys.mount`. Good catch to mention.
+ASSISTANT 
+ASSISTANT    Similarly, a repo overlay mount would need the same treatment.
+ASSISTANT 
+ASSISTANT 8. **Egress of results:** The proposal is about exposing the repo; getting changes back out is the open question. Options: (a) second writable 9p share for output/patches; (b) agent prints `git diff` to serial console (already forwarded via journald→console); (c) host-side extraction after VM shutdown — but the overlay upper is inside the ephemeral VM disk, so it's lost on shutdown unless persisted. Simplest: a writable virtfs share (e.g., `$DEVTOOLS_CONFIG/agent-output` or a repo-local `.agent-output` dir) where the agent writes a patch. Or: since the launcher script execs the VM, after VM exit it could... no, upper layer is inside the VM disk. So a shared writable dir is the cleanest.
+ASSISTANT 
+ASSISTANT 9. **Concrete sketch of changes** (briefly, as instructed — "If you need to describe code changes, do so *briefly*"):
+ASSISTANT    - In `setup.nix` VM config: add second `-virtfs local,path="$DEVTOOLS_REPO",mount_tag=devtools-repo,security_model=none,readonly=on` QEMU option; add mount unit for `/mnt/repo-source` (9p ro); add overlay mount or a tmpfs + systemd service to set up overlay at `/workspace` (overlayfs can be a `fileSystems` entry with fsType "overlay" and options lowerdir/upperdir/workdir — NixOS supports that; but lowerdir pointing at a mount unit requires ordering — fileSystems entries generate mount units with dependencies via `neededForFSInit`? Simpler: do it in a oneshot service or use fileSystems with options). Keep brief.
+ASSISTANT    - In launcher: `export DEVTOOLS_REPO="$PWD"` (or make it configurable), before exec'ing the VM.
+ASSISTANT    - Agent service: add `after`/`requires` on the mount units; set working directory or env var for repo path.
+ASSISTANT 
+ASSISTANT 10. **Also flag:** `virtualisation.qemu.options` with `$DEVTOOLS_CONFIG` — the run-nixos-vm script is a bash script, so the variable is expanded at VM launch time by the script — that works because the launcher exports DEVTOOLS_CONFIG before exec'ing. Same pattern works for `$DEVTOOLS_REPO`. Good — the existing mechanism generalizes.
+ASSISTANT 
+ASSISTANT 11. **One more consideration:** the repo contains `journal/` with session contexts and the agent's own task files — the agent reading its own task/journal is presumably desirable (the task file says the agent should have the repo available). Fine.
+ASSISTANT 
+ASSISTANT 12. **Also:** `users.users.nixos.hashedPassword` — hardcoded hash in the store; not related to the proposal but a minor smell. Maybe not worth mentioning; focus on the question. Could mention briefly? The question is about viability of the proposal. Keep focused. Maybe skip.
+ASSISTANT 
+ASSISTANT 13. **Missing dependency bug** (mount vs service ordering) is worth mentioning since it directly affects adding another mount for the repo.
+ASSISTANT 
+ASSISTANT 14. **Other files to add?** The user asked "Let me know if there are others we should add." Useful ones:
+ASSISTANT    - `prelude/config.nix` (the `devtools-prelude` — `get-config` function, to understand what `DEVTOOLS_CONFIG` is and whether a `DEVTOOLS_REPO` analog fits).
+ASSISTANT    - `presets/flakeModule.nix` / `presets/prelude-preset.nix` maybe.
+ASSISTANT    - `lite-llm/setup.nix` — to see how the QEMU host alias endpoint works (not directly needed for repo fs).
+ASSISTANT    - `journal/feature/agentic-dev/session-contexts/langchain sandbox/session.md` — context on the sandbox design intent.
+ASSISTANT    - `flake.nix` / `flakeModule.nix` — to see how modules are wired, whether `self` is available for a store-path approach.
+ASSISTANT    - `llm-providers/config.nix` — provider-type, not needed.
+ASSISTANT 
+ASSISTANT    Most relevant: `prelude/config.nix` (get-config), `flakeModule.nix`, and the langchain sandbox session.md.
+ASSISTANT 
+ASSISTANT Now, the verdict on viability given the actual code:
+ASSISTANT 
+ASSISTANT - The proposal slots in cleanly: the 9p plumbing, the launcher environment pattern, and the systemd mount-unit pattern already exist. Adding a repo share + overlay is incremental.
+ASSISTANT - The overlay-over-9p approach solves the live-tree problem I flagged earlier.
+ASSISTANT - Egress remains the open design question.
+ASSISTANT - The mount/service ordering bug should be fixed as part of this.
+ASSISTANT 
+ASSISTANT Format: The user asked "Let me know if there are others we should add" — so I should answer that, plus presumably give the updated analysis now that I've seen the code. The previous turn ended with me saying "If you add llm-agent/config.nix and llm-agent/setup.nix ... I can sketch how the chosen option would concretely slot into the existing module." So now I should deliver that updated analysis.
+ASSISTANT 
+ASSISTANT Structure:
+ASSISTANT 1. Brief: what the code changes in my assessment (short).
+ASSISTANT 2. Updated viability verdict grounded in the code.
+ASSISTANT 3. Concrete integration sketch (brief, per instructions — code changes described briefly).
+ASSISTANT 4. Issues spotted in existing code relevant to the proposal (mount ordering bug).
+ASSISTANT 5. Files to add: prelude/config.nix, flakeModule.nix, langchain sandbox session.md, maybe flake.nix.
+ASSISTANT 
+ASSISTANT Length: medium — this is a technical analysis; use headers and a few bullets. Keep code snippets minimal/brief since instructions say describe changes briefly. Maybe a short sketch of the key additions (a few lines) is acceptable but keep it tight.
+ASSISTANT 
+ASSISTANT Let me think about the overlay-in-guest details more carefully for correctness:
+ASSISTANT 
+ASSISTANT - NixOS `fileSystems` supports `fsType = "overlay"` with options like `lowerdir=...`, `upperdir=...`, `workdir=...`. But ordering with the 9p mount: the overlay mount unit would need `requires`/`after` on the 9p mount unit. With `fileSystems` entries you can add `options` and also `depends`? There's `fileSystems.<name?>` — actually you can set dependencies via `fileSystems."/workspace".options` doesn't do deps; but there is `fileSystems.<mpoint>.depends`? Hmm, I don't remember a `depends` option... There is `fileSystems.<name>.neededForFSInit` and mount units generated get `requires` on the device... For 9p there's no device. The existing code already chose explicit `systemd.mounts` for the 9p share precisely to control dependencies — so following that pattern: define the overlay also as an explicit systemd mount unit with `requires = [ "mnt-repo\x2dsource.mount" ]`... unit name escaping for dashes: systemd escapes `-` as `\x2d` in unit names. `/mnt/repo-source` → `mnt-repo\x2dsource.mount`. That's fiddly; could use a path without dash, e.g. `/mnt/reposource` or `/mnt/repo` to keep the unit name simple. Good detail to mention briefly.
+ASSISTANT 
+ASSISTANT - Overlayfs requires upperdir and workdir to be on the same filesystem and writable. Use a tmpfs mounted at e.g. `/run/overlay-upper` or a directory on the VM's root disk. tmpfs upper = zero persistence across boots (fine, ephemeral), but limited by RAM (memorySize 2048 — repo is small, fine).
+ASSISTANT 
+ASSISTANT - Alternatively skip overlayfs: bind-mount the 9p share read-write? 9p with `readonly=off` and `security_model=none` — writes would propagate to the host! That violates the "host repo never mutated" invariant. So no — unless a second writable share for a copy. Overlay is the right call. Or copy-on-boot from the ro share to a local dir (simplest, and honestly fine). I recommended overlay first, copy-on-boot as fallback. With the code in view, both are easy; overlay gives diffability.
+ASSISTANT 
+ASSISTANT - Extracting the diff: with overlay, `diff -r /mnt/repo /workspace` or in the overlay run `git diff` (git works via copy-up). Or have the agent service end with `git diff > /run/agent_output/changes.patch` on a writable share. Keep brief.
+ASSISTANT 
+ASSISTANT - Also: `security_model=none` + readonly=on for the repo share: guest sees host uid/gid. Agent service runs as root → reads OK. Fine.
+ASSISTANT 
+ASSISTANT - The `run-nixos-vm` script: QEMU options with `$DEVTOOLS_CONFIG` are expanded by the script's bash at runtime — confirmed pattern already used. So `$DEVTOOLS_REPO` works identically. But caution: `virtualisation.qemu.options` entries get embedded into the generated `run-nixos-vm` bash script; the existing entry uses `''...''` Nix indented string with `"$DEVTOOLS_CONFIG"` — fine.
+ASSISTANT 
+ASSISTANT - Where does the launcher get the repo path? `nix run` preserves cwd, so `$PWD` at launcher time is the invocation dir — but users may run from a subdir. Better: the devtools prelude might already define something (hence wanting to see `prelude/config.nix`). Or use `git rev-parse --show-toplevel`. Mention briefly.
+ASSISTANT 
+ASSISTANT Also the earlier flagged issue: the agent service comment claims it requires the 9p mount but there's no `after`/`requires` on the mount unit — with the repo mount added, this ordering becomes load-bearing (agent could start before mounts are up and fail to read the key/repo). Recommend: `after = [ "run-agent_keys.mount" ... ]; requires = [ ... ]`. Unit name for `/run/agent_keys` is `run-agent_keys.mount` (underscores are fine in unit names; dashes get escaped). Good.
+ASSISTANT 
+ASSISTANT Also: `boot.initrd.availableKernelModules = [ "9p" "9pnet_virtio" ]` — 9p modules in initrd; also need `9pnet` maybe? For virtio transport, `9pnet_virtio` is the one; `9p` is the fs. They also set `boot.kernelModules` — fine. overlay module: `overlay` is built-in in most kernels; fine.
+ASSISTANT 
+ASSISTANT One more: the VM has no `virtualisation.forwardPorts`/network to host except the QEMU host alias (10.0.2.2) for lite-llm — not relevant to repo fs.
+ASSISTANT 
+ASSISTANT Also worth noting: `nix run .#devtools/<name>` — flake apps; the launcher is a store path script; `$PWD` is the user's invocation dir. OK.
+ASSISTANT 
+ASSISTANT Now — "others we should add": 
+ASSISTANT - `prelude/config.nix` — to see `get-config` and whether there's a repo-root variable convention.
+ASSISTANT - `flakeModule.nix` and/or `flake.nix` — wiring, whether `self` is passed (for the store-path alternative).
+ASSISTANT - `journal/feature/agentic-dev/session-contexts/langchain sandbox/session.md` — design intent for the sandbox.
+ASSISTANT - Possibly `lite-llm/setup.nix` — not needed for this task.
+ASSISTANT 
+ASSISTANT I'll list the first three as useful, note the rest optional.
+ASSISTANT 
+ASSISTANT Now write the response. Keep it organized with headers, reasonably concise. Use a small amount of code sketch (brief). The system prompt says describe code changes briefly — so I'll keep the sketch to a few lines each, not full file rewrites.
+ASSISTANT 
+ASSISTANT Draft:
+ASSISTANT 
+ASSISTANT ## Updated assessment (now grounded in the code)
+ASSISTANT 
+ASSISTANT The proposal slots into the existing architecture more cleanly than I'd guessed, because the hard plumbing already exists:
+ASSISTANT 
+ASSISTANT 1. **The 9p precedent.** `setup.nix` already shares `$DEVTOOLS_CONFIG` read-only via `-virtfs ... readonly=on` and an explicit `systemd.mounts` unit. A repo share is the same pattern with a second `mount_tag`.
+ASSISTANT 2. **The env-var-through-the-launcher trick.** `run-nixos-vm` is a bash script, so `$DEVTOOLS_CONFIG` inside `virtualisation.qemu.options` expands at launch time, after the launcher exports it. `$DEVTOOLS_REPO` (or `$PWD`) works identically — and since `nix run` preserves the working directory, the launcher can capture the *live* working tree, which resolves the uncommitted-changes problem I flagged earlier.
+ASSISTANT 3. **Overlay in the guest.** Mount the repo share ro at e.g. `/mnt/repo`, then an overlay with upper/work on tmpfs at `/workspace`. Writes copy up locally; git operations work via copy-up; the lower layer stays pristine; diffing upper vs lower (or `git diff` in the overlay) yields the agent's changes. Because git only *reads* through 9p (writes land in the local upper layer), the classic 9p+git flakiness mostly doesn't apply.
+ASSISTANT 
+ASSISTANT So: viable, and the recommended shape is now concrete: **read-only 9p share of the live tree + overlayfs upper in the guest**.
+ASSISTANT 
+ASSISTANT ## Things the code surfaces that matter for the proposal
+ASSISTANT 
+ASSISTANT - **Mount ordering bug (existing):** the comment on `systemd.services.llm-agent` says the service requires the 9p mount, but the unit only orders after `network-online.target` — there's no `after`/`requires` on `run-agent_keys.mount`. Both are merely `wantedBy = multi-user.target`, so the agent can start before the key dir is mounted. This becomes load-bearing once the repo mount exists (the agent will read the repo immediately). Fix: `after`/`requires` the mount units on the service.
+ASSISTANT - **Unit-name escaping:** if the repo mount path contains a dash (e.g. `/mnt/repo-source`), the systemd unit name is `mnt-repo\x2dsource.mount` — pick a dash-free path (e.g. `/mnt/repo`) to keep dependencies readable.
+ASSISTANT - **Egress is still undefined:** the overlay upper lives in the ephemeral VM, so the agent's changes vanish at shutdown. Cheapest options: a second, writable virtfs share (e.g. under `$DEVTOOLS_CONFIG` or a repo-local gitignored dir) where the agent writes `git diff` output; or have the service print the diff to the serial console (journald already forwards there).
+ASSISTANT - **Repo path resolution:** `$PWD` at launch time is the invocation dir, which may be a subdir. `git rev-parse --show-toplevel` in the launcher is more robust — this is why I'd like to see `prelude/config.nix` (maybe the prelude already has a repo-root notion).
+ASSISTANT 
+ASSISTANT ## Brief sketch of the changes
+ASSISTANT 
+ASSISTANT - Launcher: resolve repo root, `export DEVTOOLS_REPO=...` before `exec run-nixos-vm`.
+ASSISTANT - `virtualisation.qemu.options`: add `-virtfs local,path="$DEVTOOLS_REPO",mount_tag=devtools-repo,security_model=none,readonly=on`.
+ASSISTANT - Guest: `systemd.mounts` entry for `/mnt/repo` (9p, ro) + an overlay mount (or small oneshot) at `/workspace` with upper/work under `/run`; `requires`/`after` chained from the 9p mounts to the agent service.
+ASSISTANT - Agent service: point the tools at `/workspace` (e.g. `WorkingDirectory` or an env var).
+ASSISTANT 
+ASSISTANT ## Files worth adding
+ASSISTANT 
+ASSISTANT - `prelude/config.nix` — `devtools-prelude.get-config`, to see what `DEVTOOLS_CONFIG` is and whether a repo-root variable belongs there.
+ASSISTANT - `flakeModule.nix` (and/or `flake.nix`) — module wiring; also tells me whether `self` is available, in case you'd ever want the store-path snapshot alternative.
+ASSISTANT - `journal/feature/agentic-dev/session-contexts/langchain sandbox/session.md` — the sandbox design intent, likely relevant to how the repo exposure is meant to behave.
+ASSISTANT 
+ASSISTANT (`lite-llm/setup.nix` etc. aren't needed for this question.)
+ASSISTANT 
+ASSISTANT Verdict line: viable, low-risk, incremental; main open design decision is egress.
+ASSISTANT 
+ASSISTANT I think that's the right content. Length seems appropriate — not too long. Let me tighten and format with markdown headers. The user asked specifically "Let me know if there are others we should add" — I should answer that clearly, and also deliver the promised grounded analysis. I'll lead with the analysis (the main value), then the file list, or lead with the file list briefly then analysis. Probably: short verdict, then analysis, then files to add at the end. Or files first since it's the direct question? The direct question is about files, but the substance they want is the analysis. I'll do: quick verdict → grounded analysis → existing-code issues → brief change sketch → files to add. That flows well.
+ASSISTANT 
+ASSISTANT </thinking-content-7bbeb8e1441453ad999a0bbba8a46d4b>
+ASSISTANT 
+ASSISTANT # Updated Analysis (now grounded in the code)
+ASSISTANT 
+ASSISTANT Good news: the proposal slots into the existing architecture more cleanly than my earlier generic assessment assumed, because the hard plumbing already exists in `setup.nix`.
+ASSISTANT 
+ASSISTANT ## Why it fits
+ASSISTANT 
+ASSISTANT 1. **The 9p precedent is already there.** The key directory is shared via `-virtfs ... readonly=on` and an explicit `systemd.mounts` unit. A repo share is the same pattern with a second `mount_tag` — incremental, not new machinery.
+ASSISTANT 
+ASSISTANT 2. **The env-var-through-the-launcher trick generalizes.** `run-nixos-vm` is a bash script, so `"$DEVTOOLS_CONFIG"` inside `virtualisation.qemu.options` expands at launch time, after the launcher exports it. A `"$DEVTOOLS_REPO"` works identically — and since `nix run` preserves the working directory, the launcher can share the **live working tree**, which resolves the uncommitted-changes problem I flagged earlier (a store-path snapshot would have dropped dirty files and `.git`).
+ASSISTANT 
+ASSISTANT 3. **Overlay-in-the-guest is the right COW shape here.** Mount the repo share read-only at e.g. `/mnt/repo`, then an overlay with upper/work dirs on tmpfs at `/workspace`. Writes copy up locally, the lower layer stays pristine, and git operations work via copy-up. Notably, git only *reads* through 9p (writes land in the local upper layer), so the classic 9p+git flakiness mostly doesn't apply.
+ASSISTANT 
+ASSISTANT **Verdict: viable, low-risk, and the recommended concrete shape is: read-only 9p share of the live tree + overlayfs upper in the guest.**
+ASSISTANT 
+ASSISTANT ## Things the code surfaces that matter
+ASSISTANT 
+ASSISTANT - **Existing ordering bug:** the comment on `systemd.services.llm-agent` claims the service requires the 9p mount, but the unit only orders after `network-online.target` — there's no `after`/`requires` on `run-agent_keys.mount`. Both are just `wantedBy = multi-user.target`, so the agent can start before its key dir is mounted. This becomes load-bearing once the agent reads the repo at startup; fix it as part of this work.
+ASSISTANT - **Unit-name escaping:** a mount path containing a dash (e.g. `/mnt/repo-source`) becomes `mnt-repo\x2dsource.mount` in systemd. Pick a dash-free path so the dependency chain stays readable.
+ASSISTANT - **Egress is still undefined:** the overlay upper lives in the ephemeral VM, so the agent's changes vanish at shutdown. Cheapest options: a second *writable* virtfs share (under `$DEVTOOLS_CONFIG` or a gitignored repo-local dir) where the agent writes a `git diff` patch; or print the diff to the serial console (journald already forwards there).
+ASSISTANT - **Repo path resolution:** `$PWD` at launch time may be a subdirectory. `git rev-parse --show-toplevel` in the launcher is more robust.
+ASSISTANT 
+ASSISTANT ## Brief sketch of the changes
+ASSISTANT 
+ASSISTANT - Launcher: resolve repo root, `export DEVTOOLS_REPO=...` before `exec run-nixos-vm`.
+ASSISTANT - `virtualisation.qemu.options`: add `-virtfs local,path="$DEVTOOLS_REPO",mount_tag=devtools-repo,security_model=none,readonly=on`.
+ASSISTANT - Guest: a `systemd.mounts` entry for `/mnt/repo` (9p, ro) plus an overlay mount at `/workspace` with upper/work under `/run`; chain `requires`/`after` from the mounts to the agent service.
+ASSISTANT - Agent service: point the tools at `/workspace` (e.g. `WorkingDirectory` or an env var).
+ASSISTANT 
+ASSISTANT ## Other files worth adding
+ASSISTANT 
+ASSISTANT - **`prelude/config.nix`** — to see what `devtools-prelude.get-config` provides and whether a repo-root variable belongs there rather than in the launcher.
+ASSISTANT - **`flakeModule.nix`** (and/or `flake.nix`) — module wiring; also whether `self` is passed, in case you ever want the store-path snapshot alternative.
+ASSISTANT - **`journal/feature/agentic-dev/session-contexts/langchain sandbox/session.md`** — the sandbox design intent, likely relevant to how repo exposure should behave.
+ASSISTANT 
+ASSISTANT (`lite-llm/setup.nix` and the provider modules aren't needed for this question.)
+TO LLM 2026-10-28T13:44:59
+-------
+SYSTEM Act as an expert code analyst.
+SYSTEM Answer questions about the supplied code.
+SYSTEM Always reply to the user in English.
+SYSTEM 
+SYSTEM If you need to describe code changes, do so *briefly*.
+SYSTEM 
+SYSTEM Reply in English.
+-------
+USER Here are some READ ONLY files, provided for your reference.
+USER Do not edit these files!
+USER 
+USER journal/feature/agentic-dev/tasks/agent repo filesystem
+USER ```
+USER The 'llm-agent' should make the code in the current repository avaialbe to
+USER the agent. The current proposal is to expose it to the qemu vm as a copy
+USER on write filesystem.
+USER ```
+USER 
+USER ../../../../tmp/tmp.YhEiCpknvp
+USER ```
+USER The user is working on a task which has been defined in 'journal/feature/agentic-dev/tasks/agent repo filesystem'. This
+USER file will be read into the context for your reference. Your job is
+USER to assist the user with any request related tho the task.
+USER ```
+-------
+ASSISTANT Ok, I will use these files as references.
+-------
+USER I am working with you on code in a git repository.
+USER Here are summaries of some files present in my git repo.
+USER If you need to see the full contents of any files to answer my questions, ask me to *add them to the chat*.
+USER 
+USER .gitignore
+USER 
+USER LICENSE
+USER 
+USER examples/flakeModule.nix
+USER 
+USER flake.lock
+USER 
+USER flake.nix
+USER 
+USER journal/feature/agentic-dev/control/current_task.txt
+USER 
+USER journal/feature/agentic-dev/session-contexts/Implement llmlite launcher./llm.history
+USER 
+USER journal/feature/agentic-dev/session-contexts/Implement llmlite launcher./session.md
+USER 
+USER journal/feature/agentic-dev/session-contexts/langchain sandbox/llm.history
+USER 
+USER journal/feature/agentic-dev/session-contexts/langchain sandbox/session.md
+USER 
+USER journal/feature/agentic-dev/session-contexts/litellm auth/llm.history
+USER 
+USER journal/feature/agentic-dev/session-contexts/litellm auth/session.md
+USER 
+USER journal/feature/agentic-dev/session-contexts/llmlite configuration/llm.history
+USER 
+USER journal/feature/agentic-dev/session-contexts/llmlite configuration/session.md
+USER 
+USER journal/feature/agentic-dev/tasks/Implement llmlite launcher.
+USER 
+USER journal/feature/agentic-dev/tasks/langchain sandbox
+USER 
+USER journal/feature/agentic-dev/tasks/litellm auth
+USER 
+USER journal/feature/agentic-dev/tasks/llmlite configuration
+USER 
+USER journal/feature/llm-netogallo/control/current_task.txt
+USER 
+USER journal/feature/llm-netogallo/session-contexts/Flags for llm-netogallo/llm.history
+USER 
+USER journal/feature/llm-netogallo/session-contexts/Flags for llm-netogallo/session.md
+USER 
+USER journal/feature/llm-netogallo/session-contexts/Task report/session.md
+USER 
+USER journal/feature/llm-netogallo/tasks/Flags for llm-netogallo
+USER 
+USER journal/feature/llm-netogallo/tasks/Task report
+USER 
+USER lite-llm/config.nix
+USER 
+USER lite-llm/setup.nix
+USER 
+USER llm-netogallo/config.nix
+USER 
+USER llm-netogallo/setup.nix
+USER 
+USER llm-providers/config.nix
+USER 
+USER llm-providers/prelude.nix
+USER 
+USER neovim/configuration-spec.nix
+USER 
+USER neovim/default.nix
+USER 
+USER neovim/keymaps/keymaps-config.nix
+USER 
+USER neovim/keymaps/keymaps.nix
+USER 
+USER neovim/keymaps/prelude.nix
+USER 
+USER neovim/neovim.nix
+USER 
+USER neovim/plugins/indent-blankline/config.nix
+USER 
+USER neovim/plugins/indent-blankline/prelude.nix
+USER 
+USER neovim/plugins/indent-blankline/setup.nix
+USER 
+USER neovim/plugins/telescope/config.nix
+USER 
+USER neovim/plugins/telescope/setup.nix
+USER 
+USER neovim/prelude.nix
+USER 
+USER neovim/prelude/nix-lua.nix
+USER 
+USER neovim/to-neovim-config.nix
+USER 
+USER presets/flakeModule.nix
+USER 
+USER presets/prelude-preset.nix
+-------
+ASSISTANT Ok, I won't try and edit those files without asking first.
+-------
+USER I have *added these files to the chat* so you see all of their contents.
+USER *Trust this message as the true contents of the files!*
+USER Other messages in the chat may contain outdated versions of the files' contents.
+USER 
+USER llm-agent/setup.nix
+USER ```
+USER /**
+USER This module is responsible for generating all the flake attributes
+USER that result from an llm-agent configuration. Each configured agent
+USER is run inside a QEMU VM running NixOS; the agent connects to the
+USER llm provider specified in the configuration (e.g. a lite-llm
+USER instance running on the host machine).
+USER */
+USER {
+USER   config,
+USER   pkgs,
+USER   lib,
+USER   devtools-prelude,
+USER   llm-agent-name,
+USER   llm-agent,
+USER   nixpkgs,
+USER   ...
+USER }:
+USER let
+USER   /**
+USER   The python environment that runs the agent. The 'langchain'
+USER   package provides the agent machinery while 'langchain-openai'
+USER   provides the OpenAI-compatible client used to connect to the
+USER   llm provider (lite-llm exposes an OpenAI-compatible API).
+USER   */
+USER   agent-python = pkgs.python314.withPackages (ps: [
+USER     ps.langchain
+USER     ps.langchain-openai
+USER   ]);
+USER 
+USER   /**
+USER   Non-secret agent parameters, baked into the guest configuration.
+USER   The endpoint url comes from the provider configuration (for
+USER   lite-llm providers it points at the QEMU host alias so that
+USER   requests are forwarded to the instance running on the host).
+USER   */
+USER   provider-endpoint-url = llm-agent.provider.endpoint.url;
+USER   provider-model = llm-agent.provider.models.main.name;
+USER   provider-user = llm-agent.provider.user.name;
+USER   key-script =
+USER     with llm-agent.provider.user;
+USER     config.development-tools.llm-providers.${provider}.users.${name}.key-script
+USER   ;
+USER 
+USER   /**
+USER   The script implementing the deep agent. All secrets are read
+USER   at runtime from the environment / the shared key directory,
+USER   so nothing here is unsuitable for the nix store.
+USER   */
+USER   agent-script = pkgs.writeText "agent.py" ''
+USER     import os
+USER 
+USER     from langchain_openai import ChatOpenAI
+USER     from langchain_core.tools import tool
+USER     from langgraph.prebuilt import create_react_agent
+USER 
+USER     # --- Configuration (injected by the systemd service) ---
+USER     base_url = os.environ["OPENAI_BASE_URL"]
+USER     model = os.environ["OPENAI_MODEL"]
+USER     user = os.environ["AGENT_USER"]
+USER 
+USER     # --- API key: read at runtime from the shared config dir ---
+USER     key_file = os.path.join(os.environ["AGENT_KEYS_DIR"], "users", user + ".key")
+USER     with open(key_file) as f:
+USER         api_key = f.read().strip()
+USER 
+USER     # --- LLM client via the provider's OpenAI-compatible API ---
+USER     llm = ChatOpenAI(
+USER         model=model,
+USER         base_url=base_url,
+USER         api_key=api_key,
+USER     )
+USER 
+USER     # --- Dummy task tools ---
+USER     @tool
+USER     def list_files(directory: str) -> str:
+USER         """List the files in the given directory."""
+USER         return "\n".join(sorted(os.listdir(directory)))
+USER 
+USER     tools = [list_files]
+USER 
+USER     # --- The deep agent, given a dummy task ---
+USER     agent = create_react_agent(llm, tools)
+USER 
+USER     result = agent.invoke({
+USER         "messages": [
+USER             ("user",
+USER              "List the files in /tmp and briefly summarize what you find.")
+USER         ]
+USER     })
+USER 
+USER     for message in result["messages"]:
+USER         content = getattr(message, "content", None)
+USER         if content:
+USER             print(content)
+USER   '';
+USER 
+USER   /**
+USER   The NixOS configuration of the guest VM. The agent runs as a
+USER   systemd service; the host's private configuration directory
+USER   (holding the provider authentication keys) is shared read-only
+USER   through a 9p mount so that secrets never enter the nix store
+USER   or the QEMU command line.
+USER   */
+USER   vm = nixpkgs.lib.nixosSystem {
+USER     modules = [
+USER       {
+USER         imports = [
+USER           "${nixpkgs}/nixos/modules/virtualisation/qemu-vm.nix"
+USER         ];
+USER         config = {
+USER           nixpkgs.hostPlatform = pkgs.system;
+USER           virtualisation.memorySize = 2048;
+USER           virtualisation.cores = 2;
+USER 
+USER           # Run the VM without a graphical display; the guest's
+USER           # serial port (ttyS0) is connected directly to the
+USER           # terminal that launched the VM, and the kernel console
+USER           # is placed on that serial line.
+USER           virtualisation.graphics = false;
+USER           boot.kernelParams = [ "console=ttyS0" ];
+USER 
+USER           # Share the host's private configuration directory with
+USER           # the guest through 9p. The mount is read-only; the agent
+USER           # only needs to read its authentication key.
+USER           virtualisation.qemu.options = [
+USER             ''-virtfs local,path="$DEVTOOLS_CONFIG",mount_tag=devtools-config,security_model=none,readonly=on''
+USER           ];
+USER           boot.initrd.availableKernelModules = [ "9p" "9pnet_virtio" ];
+USER           boot.kernelModules = [ "9p" "9pnet_virtio" ];
+USER 
+USER           users.users.nixos.hashedPassword = "$y$j9T$Ij.zgsiQ9UbG805vuIjz0/$qiZCBxun/3VJrAic6AGusQTlX4VN2W.Mp4LrFPrFZ6B";
+USER           users.users.nixos.group = "nixos";
+USER           users.users.nixos.extraGroups = [ "wheel" ];
+USER           users.groups.nixos = { };
+USER           users.users.nixos.isNormalUser = true;
+USER 
+USER           services.journald.extraConfig = ''
+USER             ForwardToConsole=yes
+USER             MaxLevelConsole=info
+USER           '';
+USER 
+USER           # The 9p mount of the shared key directory, defined as an
+USER           # explicit systemd mount unit (rather than a fileSystems
+USER           # entry) so it is generated directly as a unit and can be
+USER           # depended upon by the agent service.
+USER           systemd.mounts = [
+USER             {
+USER               what = "devtools-config";
+USER               where = "/run/agent_keys";
+USER               type = "9p";
+USER               options = "trans=virtio,version=9p2000.L,ro";
+USER               wantedBy = [ "multi-user.target" ];
+USER             }
+USER           ];
+USER 
+USER           # The agent service. Non-secret parameters are baked in;
+USER           # the api key is read from the shared directory at runtime.
+USER           # The service's output is forwarded to the kernel log so
+USER           # that it shows up on the serial console, i.e. in the
+USER           # terminal that launched the VM. The service requires the
+USER           # 9p mount to be up before it starts.
+USER           systemd.services.llm-agent = {
+USER             description = "LangChain deep agent";
+USER             wantedBy = [ "multi-user.target" ];
+USER             after = [ "network-online.target" ];
+USER             wants = [ "network-online.target" ];
+USER             environment = {
+USER               OPENAI_BASE_URL = provider-endpoint-url;
+USER               OPENAI_MODEL = provider-model;
+USER               AGENT_USER = provider-user;
+USER               AGENT_KEYS_DIR = "/run/agent_keys";
+USER             };
+USER             serviceConfig = {
+USER               Type = "oneshot";
+USER               RemainAfterExit = true;
+USER               #StandardOutput = "kmsg";
+USER               #StandardError = "kmsg";
+USER             };
+USER             script = ''
+USER               exec ${agent-python}/bin/python ${agent-script}
+USER             '';
+USER             #unitConfig.OnFailure = [ "poweroff.target" ];
+USER           };
+USER         };
+USER       }
+USER     ];
+USER   };
+USER 
+USER   /**
+USER   The host-side launch script. It sources the tool specific
+USER   environment (defining DEVTOOLS_CONFIG), warns if no llm
+USER   provider is reachable on the host, and boots the VM with
+USER   the private configuration directory shared through 9p.
+USER   */
+USER   launch-llm-agent = pkgs.writeScript "launch-${llm-agent-name}" ''
+USER     #!${pkgs.bash}/bin/bash
+USER     set -e
+USER 
+USER     source "${devtools-prelude.get-config llm-agent-name}"
+USER 
+USER     if ! ${pkgs.curl}/bin/curl -s "${provider-endpoint-url}" >/dev/null 2>&1; then
+USER       echo -e "\033[33mWarning: no llm provider seems to be reachable at '${provider-endpoint-url}'.\033[0m" >&2
+USER       echo "If a lite-llm instance provides this model, launch it on the host first." >&2
+USER     fi
+USER 
+USER     user_key=$(${key-script})
+USER     user_key_dir="$DEVTOOLS_CONFIG/users/"
+USER     mkdir -p "$user_key_dir"
+USER     echo "$user_key" > "$user_key_dir/${provider-user}.key"
+USER     export DEVTOOLS_CONFIG
+USER     echo "Running: ${vm.config.system.build.vm}/bin/run-nixos-vm"
+USER     exec ${vm.config.system.build.vm}/bin/run-nixos-vm
+USER   '';
+USER 
+USER in
+USER {
+USER   config.apps."devtools/${llm-agent-name}" = {
+USER     type = "app";
+USER     program = "${launch-llm-agent}";
+USER   };
+USER }
+USER ```
+USER 
+USER llm-agent/config.nix
+USER ```
+USER top@{ inputs, flake-parts-lib, lib, llm-providers, ... }:
+USER let
+USER   inherit (llm-providers) provider-type;
+USER   inherit (flake-parts-lib) mkPerSystemOption;
+USER   inherit (lib) mkOption types;
+USER 
+USER   spec = types.submodule {
+USER     options = {
+USER       enable = mkOption {
+USER         type = types.bool;
+USER         description = ''
+USER           Enable the llm agent. This will trigger the creation
+USER           of the scripts used to launch the agent.
+USER         '';
+USER         default = false;
+USER       };
+USER 
+USER       provider = mkOption {
+USER         type = provider-type;
+USER         description = ''
+USER           This option is used to specify the provider that
+USER           will be used to communicate with the llm agent.
+USER         '';
+USER       };
+USER     };
+USER   };
+USER   perSystem = _:
+USER   let
+USER     imports = lib.attrValues (
+USER       lib.mapAttrs to-llm-agent top.config.development-tools.llm-agent
+USER     );
+USER     to-llm-agent = llm-agent-name: llm-agent: {
+USER       imports = [ ./setup.nix ];
+USER       config._module.args = { inherit llm-agent-name llm-agent; };
+USER     };
+USER   in
+USER   {
+USER     inherit imports;
+USER     config._module.args = { inherit (inputs) nixpkgs; };
+USER   };
+USER in
+USER   {
+USER     options = {
+USER       development-tools.llm-agent = mkOption {
+USER         type = types.attrsOf spec;
+USER         description = ''
+USER           The 'llm-agent' development tool easily allows setting
+USER           up sandboxed environments to run autonomus agents within
+USER           the context of the repository.
+USER 
+USER           It also provides options to easily enhance the
+USER           agents with MCPs or additional tools.
+USER         '';
+USER         default = {};
+USER       };
+USER       perSystem = mkPerSystemOption perSystem;
+USER     };
+USER   }
+USER ```
+USER 
+USER prelude/config.nix
+USER ```
+USER top@{ lib, flake-parts-lib, ... }:
+USER let
+USER   inherit (lib) mkOption types;
+USER   inherit (flake-parts-lib) mkPerSystemOption;
+USER 
+USER   perSystem = { pkgs, ... }:
+USER   let
+USER     inherit (top.config.development-tools) global-config;
+USER     get-config-base = pkgs.writeScript "get-config-base" ''
+USER       #!${pkgs.bash}/bin/bash
+USER       export DEVTOOLS_CONFIG_ROOT="${global-config.config-dir}"
+USER       export DEVTOOLS_CONFIG_GLOBAL="$DEVTOOLS_CONFIG_ROOT/private"
+USER 
+USER       mkdir -p "$DEVTOOLS_CONFIG_GLOBAL"
+USER       GITIGNORE="$DEVTOOLS_CONFIG_ROOT/.gitignore"
+USER 
+USER       if [[ ! -e "$GITIGNORE" ]]; then
+USER         echo "private" >> "$GITIGNORE"
+USER       fi
+USER 
+USER       if [[ -e "$GITIGNORE" && ! -f "$GITIGNORE" ]]; then
+USER         echo -e "\033[31mWarning: '$GITIGNORE' is not a file. Ensure that '$DEVTOOLS_CONFIG_ROOT/private' is not commited. \033[0m"
+USER       fi
+USER     '';
+USER 
+USER     /**
+USER     This sets the environmental variables that development tools can
+USER     use to locate resources, such as the directory that will
+USER     be used to store user/session specific settings. This
+USER     script is meant to be sourced by the respective tool
+USER     before launching. The tool should provide it's name
+USER     in order to set the variables propertly.
+USER     */
+USER     get-config = name:
+USER       pkgs.writeScript "get-config-for-${name}" ''
+USER       #!${pkgs.bash}/bin/bash
+USER 
+USER       source "${get-config-base}"
+USER 
+USER       export DEVTOOLS_CONFIG="$DEVTOOLS_CONFIG_GLOBAL/${name}"
+USER 
+USER       mkdir -p "$DEVTOOLS_CONFIG"
+USER       ''
+USER     ;
+USER   in
+USER     {
+USER       config._module.args.devtools-prelude = {
+USER         inherit get-config;
+USER       };
+USER     }
+USER   ;
+USER in
+USER   {
+USER     options = {
+USER       development-tools.global-config = {
+USER         config-dir = mkOption {
+USER           type = types.str;
+USER           description = ''
+USER             The base directory that will contain the configuration for
+USER             all the tools. This is meant to contain user-specific values
+USER             that should not live at the store, potentially including
+USER             credentials. Relative paths are allowed and will be interpreted
+USER             relative to the repository's root. A '.gitignore' entry is
+USER             added inside the config directory to ensure it does not get
+USER             accidentally added to VCS.
+USER           '';
+USER           default = "$HOME/.config/development-tools-config";
+USER         };
+USER       };
+USER 
+USER       perSystem = mkPerSystemOption perSystem;
+USER     };
+USER   }
+USER ```
+USER 
+USER flakeModule.nix
+USER ```
+USER { self, lib, flake-parts-lib, ... }:
+USER let
+USER   imports = [
+USER     ./presets/flakeModule.nix
+USER     ./neovim/default.nix
+USER     ./llm-netogallo/config.nix
+USER     ./lite-llm/config.nix
+USER     ./prelude/config.nix
+USER     ./llm-providers/config.nix
+USER     ./llm-providers/prelude.nix
+USER     ./llm-agent/config.nix
+USER   ];
+USER in
+USER {
+USER   inherit imports;
+USER }
+USER ```
+-------
+ASSISTANT Ok, I will use that as the true, current contents of the files.
+-------
+USER Can you analyse the viability of the proposal?
+-------
+ASSISTANT # Viability Analysis: Repo-as-COW-filesystem for `llm-agent`
+ASSISTANT 
+ASSISTANT **Caveat first:** I haven't seen the contents of `llm-agent/config.nix` / `setup.nix`, so I'm analyzing the proposal as stated in the task file, plus what the repo structure implies (Nix flake, flake-parts, a QEMU-based sandbox). If you add those files to the chat I can ground this in the actual code.
+ASSISTANT 
+ASSISTANT ## The core idea is sound
+ASSISTANT 
+ASSISTANT Giving the agent a writable view of the repo while the host copy stays pristine is exactly the right goal for a sandboxed agentic-dev workflow. "Copy-on-write" is a viable mechanism, but the term covers several quite different implementations, and the choice matters more than the concept.
+ASSISTANT 
+ASSISTANT ## Implementation options
+ASSISTANT 
+ASSISTANT | Approach | How | Pros | Cons |
+ASSISTANT |---|---|---|---|
+ASSISTANT | **overlayfs in guest, Nix store path as lowerdir** | Bake the flake source into the VM closure; mount `overlay` with `lowerdir=/nix/store/...-source`, upper/work on tmpfs or the VM disk | Very Nix-idiomatic; store path is immutable so it's a perfect lower layer; diffing upper vs. lower gives you the agent's changes for free; fast local I/O | Snapshot at build time: **no uncommitted changes, no `.git`** (flake source filtering drops both) |
+ASSISTANT | **9p (`-virtfs`) read-only share + overlayfs upper** | QEMU passthrough of the host working tree | Agent sees the *live* working tree, including dirty files and `.git` | 9p is slow and historically flaky with git (locking, mmap); no inotify across the boundary; uid/gid mapping pain (`security_model=`) |
+ASSISTANT | **virtiofs instead of 9p** | Same as above but via `virtiofsd` | Much more robust and faster than 9p | Requires running virtiofsd alongside QEMU; more plumbing in the launcher |
+ASSISTANT | **qcow2 backing-file chain** | Build a base image containing the repo; `qemu-img create -b base.qcow2` per run | True block-level COW; good performance; discarding the overlay = clean reset | Most machinery: you must build the base image, manage overlay lifecycle, and it's still a build-time snapshot |
+ASSISTANT | **Copy-on-boot** | systemd service copies the repo (from store path or a share) to a writable location at VM start | Trivially simple; captures live tree if copied from host; whole-disk-ephemeral gives the same safety guarantee | Not literally COW; one copy per boot (irrelevant for a repo this size); no pristine layer to diff against unless you keep one |
+ASSISTANT 
+ASSISTANT ## Key considerations for this specific repo
+ASSISTANT 
+ASSISTANT 1. **Repo size is a non-issue.** This is a Nix configuration repo, likely a few MB. The performance argument for COW (avoid copying unchanged data) barely applies. The real reasons to prefer overlayfs are *workflow* ones: a pristine lower layer to diff against, and O(1) reset by clearing the upper layer.
+ASSISTANT 
+ASSISTANT 2. **The uncommitted-changes problem is the real design decision.** A flake-built store path only contains *committed, tracked* files. For an agentic-dev tool, the agent almost certainly needs to see the user's current working tree. That pushes toward either a runtime share (9p/virtiofs) or a copy-at-launch, rather than baking the source into the image.
+ASSISTANT 
+ASSISTANT 3. **`.git` handling.** If the agent should run git commands (commit, diff, branch), it needs a writable `.git`, which neither the store path nor a read-only share provides. You'd copy `.git` into the writable layer at boot, or extract results as patches instead.
+ASSISTANT 
+ASSISTANT 4. **Getting results out.** COW protects the host, but you still need an egress path for the agent's work: a small writable shared directory, `git diff`/patches relayed through the agent channel, or a push to a host-side git remote. Worth deciding early, since it shapes the mount layout.
+ASSISTANT 
+ASSISTANT 5. **NixOS integration is easy either way.** `qemu-vm.nix`-style VMs accept extra QEMU options for `-virtfs`, `fileSystems` entries support both `9p` and `overlay` fsTypes, and a boot-time copy is a three-line systemd service. Nothing here fights the existing flake structure.
+ASSISTANT 
+ASSISTANT ## Verdict
+ASSISTANT 
+ASSISTANT **Viable, and a good fit — but I'd reframe it.** The valuable invariant is "agent gets a writable repo, host repo is never mutated, changes are extractable and discardable." Literal COW (qcow2 backing chains) is the most complex way to get that and buys little at this repo's scale.
+ASSISTANT 
+ASSISTANT My recommendation, in order of preference:
+ASSISTANT 
+ASSISTANT 1. **overlayfs with a read-only lower layer** (store path if a committed snapshot suffices; a read-only 9p/virtiofs mount if the live tree is needed), upper layer on ephemeral storage. Diff upper-vs-lower to extract the agent's changes.
+ASSISTANT 2. **Copy-on-boot** as the simplest fallback — honestly fine for this repo size, and much less machinery.
+ASSISTANT 
+ASSISTANT The main risks to flag in the task write-up: 9p + git flakiness if you go that route, missing uncommitted changes if you go the store-path route, and the still-undefined story for getting the agent's output back to the host.
+ASSISTANT 
+ASSISTANT If you add `llm-agent/config.nix` and `llm-agent/setup.nix` (and possibly the `langchain sandbox` session notes) to the chat, I can sketch how the chosen option would concretely slot into the existing module.
+-------
+USER I added these files to the chat: llm-agent/config.nix, llm-agent/setup.nix
+USER Let me know if there are others we should add.
+-------
+ASSISTANT # Updated Analysis (now grounded in the code)
+ASSISTANT 
+ASSISTANT Good news: the proposal slots into the existing architecture more cleanly than my earlier generic assessment assumed, because the hard plumbing already exists in `setup.nix`.
+ASSISTANT 
+ASSISTANT ## Why it fits
+ASSISTANT 
+ASSISTANT 1. **The 9p precedent is already there.** The key directory is shared via `-virtfs ... readonly=on` and an explicit `systemd.mounts` unit. A repo share is the same pattern with a second `mount_tag` — incremental, not new machinery.
+ASSISTANT 
+ASSISTANT 2. **The env-var-through-the-launcher trick generalizes.** `run-nixos-vm` is a bash script, so `"$DEVTOOLS_CONFIG"` inside `virtualisation.qemu.options` expands at launch time, after the launcher exports it. A `"$DEVTOOLS_REPO"` works identically — and since `nix run` preserves the working directory, the launcher can share the **live working tree**, which resolves the uncommitted-changes problem I flagged earlier (a store-path snapshot would have dropped dirty files and `.git`).
+ASSISTANT 
+ASSISTANT 3. **Overlay-in-the-guest is the right COW shape here.** Mount the repo share read-only at e.g. `/mnt/repo`, then an overlay with upper/work dirs on tmpfs at `/workspace`. Writes copy up locally, the lower layer stays pristine, and git operations work via copy-up. Notably, git only *reads* through 9p (writes land in the local upper layer), so the classic 9p+git flakiness mostly doesn't apply.
+ASSISTANT 
+ASSISTANT **Verdict: viable, low-risk, and the recommended concrete shape is: read-only 9p share of the live tree + overlayfs upper in the guest.**
+ASSISTANT 
+ASSISTANT ## Things the code surfaces that matter
+ASSISTANT 
+ASSISTANT - **Existing ordering bug:** the comment on `systemd.services.llm-agent` claims the service requires the 9p mount, but the unit only orders after `network-online.target` — there's no `after`/`requires` on `run-agent_keys.mount`. Both are just `wantedBy = multi-user.target`, so the agent can start before its key dir is mounted. This becomes load-bearing once the agent reads the repo at startup; fix it as part of this work.
+ASSISTANT - **Unit-name escaping:** a mount path containing a dash (e.g. `/mnt/repo-source`) becomes `mnt-repo\x2dsource.mount` in systemd. Pick a dash-free path so the dependency chain stays readable.
+ASSISTANT - **Egress is still undefined:** the overlay upper lives in the ephemeral VM, so the agent's changes vanish at shutdown. Cheapest options: a second *writable* virtfs share (under `$DEVTOOLS_CONFIG` or a gitignored repo-local dir) where the agent writes a `git diff` patch; or print the diff to the serial console (journald already forwards there).
+ASSISTANT - **Repo path resolution:** `$PWD` at launch time may be a subdirectory. `git rev-parse --show-toplevel` in the launcher is more robust.
+ASSISTANT 
+ASSISTANT ## Brief sketch of the changes
+ASSISTANT 
+ASSISTANT - Launcher: resolve repo root, `export DEVTOOLS_REPO=...` before `exec run-nixos-vm`.
+ASSISTANT - `virtualisation.qemu.options`: add `-virtfs local,path="$DEVTOOLS_REPO",mount_tag=devtools-repo,security_model=none,readonly=on`.
+ASSISTANT - Guest: a `systemd.mounts` entry for `/mnt/repo` (9p, ro) plus an overlay mount at `/workspace` with upper/work under `/run`; chain `requires`/`after` from the mounts to the agent service.
+ASSISTANT - Agent service: point the tools at `/workspace` (e.g. `WorkingDirectory` or an env var).
+ASSISTANT 
+ASSISTANT ## Other files worth adding
+ASSISTANT 
+ASSISTANT - **`prelude/config.nix`** — to see what `devtools-prelude.get-config` provides and whether a repo-root variable belongs there rather than in the launcher.
+ASSISTANT - **`flakeModule.nix`** (and/or `flake.nix`) — module wiring; also whether `self` is passed, in case you ever want the store-path snapshot alternative.
+ASSISTANT - **`journal/feature/agentic-dev/session-contexts/langchain sandbox/session.md`** — the sandbox design intent, likely relevant to how repo exposure should behave.
+ASSISTANT 
+ASSISTANT (`lite-llm/setup.nix` and the provider modules aren't needed for this question.)
+-------
+USER I added these files to the chat: flakeModule.nix, prelude/config.nix
+USER Let me know if there are others we should add.
+USER 
+USER Reply in English.
+LLM RESPONSE 2026-10-28T13:45:30
+ASSISTANT <thinking-content-7bbeb8e1441453ad999a0bbba8a46d4b>
+ASSISTANT 
+ASSISTANT The user has added `flakeModule.nix` and `prelude/config.nix` to the chat. Let me look at what these give me.
+ASSISTANT 
+ASSISTANT `prelude/config.nix`:
+ASSISTANT - Defines `development-tools.global-config.config-dir` option, default `$HOME/.config/development-tools-config`.
+ASSISTANT - `get-config-base` script: sets `DEVTOOLS_CONFIG_ROOT` and `DEVTOOLS_CONFIG_GLOBAL="$DEVTOOLS_CONFIG_ROOT/private"`, mkdir, and manages a `.gitignore` inside the config root to ensure `private` isn't committed.
+ASSISTANT - `get-config name`: sources base, sets `DEVTOOLS_CONFIG="$DEVTOOLS_CONFIG_GLOBAL/${name}"`, mkdir.
+ASSISTANT - Exposes `devtools-prelude = { inherit get-config; }` as a module arg.
+ASSISTANT 
+ASSISTANT So `devtools-prelude.get-config llm-agent-name` in `setup.nix` sources this and sets `DEVTOOLS_CONFIG`. Good.
+ASSISTANT 
+ASSISTANT `flakeModule.nix`:
+ASSISTANT - imports presets, neovim, llm-netogallo, lite-llm, prelude, llm-providers (config + prelude), llm-agent.
+ASSISTANT 
+ASSISTANT What did I want from these?
+ASSISTANT 
+ASSISTANT 1. `prelude/config.nix` — I wanted to see whether a repo-root variable belongs there. Observations:
+ASSISTANT    - The prelude is about *user-private config*, not repo state. It sets `DEVTOOLS_CONFIG_ROOT` from a global option. There's no notion of "repository root" in the prelude at all.
+ASSISTANT    - The `.gitignore` management: it writes `private` into `$DEVTOOLS_CONFIG_ROOT/.gitignore`. Note the config dir default is `$HOME/.config/development-tools-config`, outside the repo, so the gitignore is mostly a safety net if someone sets a repo-relative `config-dir` (the option description says relative paths are interpreted relative to the repo root — though I don't see that logic implemented in the script; the script just uses the value as-is. Actually the description says "Relative paths are allowed and will be interpreted relative to the repository's root" but the script does `export DEVTOOLS_CONFIG_ROOT="${global-config.config-dir}"` — if it's relative, it would be relative to the CWD of the launched script, not necessarily repo root. That's a latent inconsistency worth noting, and it's relevant to our repo-root discussion: the same "repo root resolution" problem exists here.)
+ASSISTANT    - So: a repo-root export could plausibly live in the prelude (e.g. `get-config` could also export `DEVTOOLS_REPO`), but the prelude currently has no repo-root concept. Two options: (a) add repo-root resolution to the prelude's `get-config-base` (benefits all tools), or (b) keep it local to the llm-agent launcher. Given the prelude is the shared "environment setup" layer, adding it there is arguably cleaner, but it's a scope decision. Also note: the prelude is generic dev-tools infrastructure; repo-root is meaningful for many tools (neovim config? llm-netogallo?), so prelude seems like the right home. But minimal-change approach: do it in the launcher first.
+ASSISTANT 
+ASSISTANT 2. `flakeModule.nix` — I wanted to check module wiring and whether `self` is passed. Observations:
+ASSISTANT    - `flakeModule.nix` takes `{ self, lib, flake-parts-lib, ... }` but doesn't use `self` — it just imports the config modules. The `llm-agent/config.nix` takes `top@{ inputs, flake-parts-lib, lib, llm-providers, ... }` — `llm-providers` is passed as a module arg presumably from `llm-providers/prelude.nix`. `inputs` is available, and `nixpkgs` is passed to setup.nix via `config._module.args = { inherit (inputs) nixpkgs; }`.
+ASSISTANT    - `self` is available at the flakeModule level, so if we ever wanted the store-path snapshot alternative (`self.outPath`), it could be threaded through. But since we decided live-tree sharing is the way, we don't need it. Worth a one-line mention.
+ASSISTANT    - The perSystem wiring in `llm-agent/config.nix`: `imports = lib.attrValues (lib.mapAttrs to-llm-agent top.config.development-tools.llm-agent)` — each agent gets `./setup.nix` imported with args `llm-agent-name` and `llm-agent`. Fine.
+ASSISTANT 
+ASSISTANT So now I should deliver the final grounded analysis. The user asked "Let me know if there are others we should add." — I previously suggested `journal/feature/agentic-dev/session-contexts/langchain sandbox/session.md`. Do I still need it? It would inform design intent, but for viability analysis I have enough. I could say: no more files strictly needed for the viability call; optionally the session.md for design intent, and maybe `llm-providers/prelude.nix` if we want to check how module args are threaded (but not needed for this question).
+ASSISTANT 
+ASSISTANT Actually, let me reconsider: is there anything in these two files that changes my recommendation or adds new findings?
+ASSISTANT 
+ASSISTANT New findings from `prelude/config.nix`:
+ASSISTANT 
+ASSISTANT 1. **Repo-root resolution already has a latent issue in the prelude.** The `config-dir` option description promises "Relative paths are allowed and will be interpreted relative to the repository's root", but `get-config-base` just does `export DEVTOOLS_CONFIG_ROOT="${global-config.config-dir}"` — a relative value would be interpreted relative to the *CWD when the launcher runs*, not the repo root. Since `nix run` preserves CWD, and users may launch from a subdirectory, this is the same bug class I flagged for `$PWD`-based repo sharing. This strengthens the case for adding a shared "resolve repo root" helper in the prelude — it fixes/implements the documented behavior AND provides `DEVTOOLS_REPO` for the agent launcher.
+ASSISTANT 
+ASSISTANT 2. **The prelude is the natural home for the repo-root export.** `get-config` is sourced by every tool launcher before launch (llm-agent does `source "${devtools-prelude.get-config llm-agent-name}"`). Adding `export DEVTOOLS_REPO=$(git rev-parse --show-toplevel)` (with a fallback) in `get-config-base` would make it available to all tools uniformly. But caution: the prelude is currently store-built (`pkgs.writeScript`) and generic; adding git dependency is fine (git is likely already a dependency; actually the script would need git on PATH — the launcher runs in user's environment where git presumably exists; but for purity, could use `${pkgs.git}/bin/git`).
+ASSISTANT 
+ASSISTANT 3. **Egress dir option:** the prelude already establishes the pattern of a per-tool private dir under `$DEVTOOLS_CONFIG` (e.g. `$HOME/.config/development-tools-config/private/llm-agent-<name>/`). This is a natural host-side landing zone for the agent's output patches — the launcher already writes the user key there (`$DEVTOOLS_CONFIG/users/`). So egress could be: share `$DEVTOOLS_CONFIG` writable (second virtfs, rw) and have the agent write `changes.patch` there. But wait — currently the whole `$DEVTOOLS_CONFIG` is shared read-only for keys. Making it writable has security implications (agent could overwrite its own key... which is minor; or write arbitrary files into the user's config dir — moderate). Alternative: a dedicated subdir like `$DEVTOOLS_CONFIG/output` shared rw, or a repo-local gitignored dir. Worth mentioning briefly.
+ASSISTANT 
+ASSISTANT Hmm, actually one more consideration: the launcher writes the key into `$DEVTOOLS_CONFIG/users/` — so `$DEVTOOLS_CONFIG` contains both keys and (potentially) agent output. A writable share of the whole dir lets the agent read its own key (fine, it already can) and write anywhere in its own tool dir. Probably acceptable but a dedicated output subdir is cleaner.
+ASSISTANT 
+ASSISTANT 4. **`flakeModule.nix` findings:** `self` is in scope but unused; `inputs` reaches `llm-agent/config.nix` and `nixpkgs` is threaded to `setup.nix`. If we ever want the committed-snapshot alternative, `self.outPath` could be threaded the same way — but not needed for the live-tree approach. Also confirms `llm-providers` module arg comes from `llm-providers/prelude.nix` (not seen, but its role is clear).
+ASSISTANT 
+ASSISTANT Also, I should double check the claim about `nix run` preserving CWD: yes, `nix run` executes the app in the current working directory (it doesn't cd). So `$PWD` in the launcher is the user's CWD. Good.
+ASSISTANT 
+ASSISTANT One more thing to verify in setup.nix with the prelude knowledge: `devtools-prelude.get-config llm-agent-name` — in setup.nix, `llm-agent-name` is the attr name. The script is `get-config-for-${name}`. Fine.
+ASSISTANT 
+ASSISTANT Also note: in `setup.nix`, the launcher does `source "${devtools-prelude.get-config llm-agent-name}"` — this sets DEVTOOLS_CONFIG. Then exports it before `exec run-nixos-vm`. The virtfs option uses `path="$DEVTOOLS_CONFIG"` — expanded by the run-nixos-vm shell at launch. Confirmed pattern.
+ASSISTANT 
+ASSISTANT Now, the response format: The user asked two things implicitly: (1) acknowledge the added files and integrate findings, (2) tell them if others should be added. My previous message promised: "prelude/config.nix — to see what devtools-prelude.get-config provides and whether a repo-root variable belongs there rather than in the launcher" and "flakeModule.nix — module wiring; also whether self is passed".
+ASSISTANT 
+ASSISTANT So the response should:
+ASSISTANT - Confirm what the new files reveal and how it refines the plan.
+ASSISTANT - Key new insight: the prelude's documented-but-unimplemented repo-root behavior; recommend putting repo-root resolution in the prelude (kills two birds).
+ASSISTANT - Egress: prelude's per-tool private dir is a natural landing zone.
+ASSISTANT - flakeModule: self available if ever needed; wiring confirmed fine; no changes needed there for this feature.
+ASSISTANT - Answer "others to add?": For the viability call — no, I have enough. Optionally `langchain sandbox/session.md` for design intent if they want me to help draft the implementation or task notes. Maybe also `llm-providers/prelude.nix` only if we later touch provider wiring — not needed now.
+ASSISTANT 
+ASSISTANT Length/format: This is a technical analysis conversation. Previous responses used headers and bullets. Keep it structured but not bloated. Medium length. Use a couple of sections: "What the new files settle", maybe "Refined recommendation", "Remaining files". Keep brief per system prompt ("If you need to describe code changes, do so *briefly*").
+ASSISTANT 
+ASSISTANT Let me draft.
+ASSISTANT 
+ASSISTANT ---
+ASSISTANT 
+ASSISTANT # What the new files settle
+ASSISTANT 
+ASSISTANT **`prelude/config.nix` — the prelude is the right home for repo-root resolution, and there's a latent bug to fix along the way.**
+ASSISTANT 
+ASSISTANT - The `config-dir` option documents "Relative paths are allowed and will be interpreted relative to the repository's root", but `get-config-base` just does `export DEVTOOLS_CONFIG_ROOT="${global-config.config-dir}"` — a relative value resolves against the launcher's CWD, not the repo root. Same bug class as the `$PWD`-based repo sharing I flagged.
+ASSISTANT - Since every tool launcher sources `get-config` before doing anything, adding repo-root resolution there (e.g. `DEVTOOLS_REPO=$(git rev-parse --show-toplevel)`) gives the agent launcher `DEVTOOLS_REPO` for free and makes the prelude match its own documentation. One helper, two fixes.
+ASSISTANT - Caveat: the prelude script is store-built and generic; use `${pkgs.git}/bin/git` explicitly rather than relying on the user's PATH, and decide behavior outside a git repo (fallback to `$PWD` or fail loudly — for the agent, failing loudly is better; for the prelude generically, maybe fallback).
+ASSISTANT 
+ASSISTANT Hmm wait — should the prelude fail outside a git repo? The prelude serves neovim, llm-netogallo etc. which may not care about repo root. So: export if resolvable, unset otherwise; the agent launcher checks and errors if unset. That's the clean split.
+ASSISTANT 
+ASSISTANT **Egress landing zone already exists.** The prelude gives each tool a private dir (`$DEVTOOLS_CONFIG` = `.../private/<tool-name>`), and the launcher already writes the key file there. A dedicated writable subdir (e.g. `$DEVTOOLS_CONFIG/agent-output`) shared rw via a second virtfs tag is the natural place for the agent's `changes.patch` — no new config surface needed. Don't share the whole `$DEVTOOLS_CONFIG` writable; keep the key dir ro and give the agent a separate rw mount so it can't touch credentials.
+ASSISTANT 
+ASSISTANT Wait, actually — if we share `$DEVTOOLS_CONFIG` read-only for keys AND want a writable output dir inside it, we'd need two shares of overlapping paths, or restructure: share `$DEVTOOLS_CONFIG` ro (keys, as today) and share `$DEVTOOLS_CONFIG/output` rw. Two virtfs entries with different tags, mount keys at /run/agent_keys (ro) and output at /run/agent_output (rw). That works — QEMU doesn't mind overlapping host paths. Alternatively put output elsewhere. Keep it brief — just note the option and the "don't make credentials writable" principle.
+ASSISTANT 
+ASSISTANT **`flakeModule.nix` — wiring confirmed, nothing to change.** `self` is in scope at the flakeModule level (currently unused), so the committed-snapshot alternative (`self.outPath` as overlay lowerdir) remains available if ever wanted — but with live-tree sharing chosen, no change needed here. `inputs.nixpkgs` threading to `setup.nix` is confirmed; the per-agent import map in `llm-agent/config.nix` needs no modification for the repo share.
+ASSISTANT 
+ASSISTANT # Refined plan (brief)
+ASSISTANT 
+ASSISTANT 1. `prelude/config.nix`: in `get-config-base`, resolve and export `DEVTOOLS_REPO` via `${pkgs.git}/bin/git rev-parse --show-toplevel` (unset if not in a repo); this also makes relative `config-dir` behave as documented if you resolve it against `DEVTOOLS_REPO`.
+ASSISTANT 2. `llm-agent/setup.nix` launcher: error if `DEVTOOLS_REPO` unset; otherwise no change needed there beyond the existing `export` pattern (DEVTOOLS_REPO is already in the environment after sourcing).
+ASSISTANT 3. QEMU opts: `-virtfs local,path="$DEVTOOLS_REPO",mount_tag=devtools-repo,security_model=none,readonly=on`.
+ASSISTANT 4. Guest: ro 9p mount at `/mnt/repo`, overlay at `/workspace` (upper/work under `/run`), fix the missing `requires`/`after` on the mounts for the agent service (the existing keys-mount ordering bug).
+ASSISTANT 5. Optional egress: rw virtfs of `$DEVTOOLS_CONFIG/output` → `/run/agent_output`, agent writes `git diff` there at end of run.
+ASSISTANT 
+ASSISTANT # Remaining files
+ASSISTANT 
+ASSISTANT - Nothing more is needed for the viability verdict — it stands: **viable, recommended shape unchanged** (live-tree ro share + guest overlay).
+ASSISTANT - If you want help with implementation details or the task write-up: `journal/feature/agentic-dev/session-contexts/langchain sandbox/session.md` (design intent for the sandbox) would be useful.
+ASSISTANT - `llm-providers/prelude.nix` only if we end up touching how provider options thread through — not needed for this feature.
+ASSISTANT 
+ASSISTANT ---
+ASSISTANT 
+ASSISTANT Check length: reasonable. Let me make sure I'm accurate about the prelude script details:
+ASSISTANT 
+ASSISTANT ```
+ASSISTANT get-config-base: 
+ASSISTANT   export DEVTOOLS_CONFIG_ROOT="${global-config.config-dir}"
+ASSISTANT   export DEVTOOLS_CONFIG_GLOBAL="$DEVTOOLS_CONFIG_ROOT/private"
+ASSISTANT   mkdir -p ...
+ASSISTANT   GITIGNORE handling
+ASSISTANT ```
+ASSISTANT 
+ASSISTANT Yes — no repo-root resolution. And the option description says "Relative paths are allowed and will be interpreted relative to the repository's root." So the documented behavior is not implemented. Correct finding.
+ASSISTANT 
+ASSISTANT One nuance: is it truly a bug? If the user always launches from repo root, relative paths work. But "interpreted relative to the repository's root" is not what happens if launched from a subdir. So yes, latent inconsistency. I'll phrase it carefully: "documented but not implemented".
+ASSISTANT 
+ASSISTANT Also the gitignore logic: `if [[ ! -e "$GITIGNORE" ]]; then echo "private" >> "$GITIGNORE"; fi` — appends "private" to the gitignore inside the config root. If config-dir is outside the repo (default), this gitignore is pointless but harmless. Fine, not relevant.
+ASSISTANT 
+ASSISTANT Another check: in setup.nix the launcher sources get-config, then writes the key to `$DEVTOOLS_CONFIG/users/`. The virtfs shares `$DEVTOOLS_CONFIG` (the tool-specific dir, not the global one). Right: `path="$DEVTOOLS_CONFIG"` and DEVTOOLS_CONFIG = `$DEVTOOLS_CONFIG_GLOBAL/<tool-name>`. So the guest sees only the tool's dir. Good — so an rw output share of `$DEVTOOLS_CONFIG/output` would be within the tool's dir, not touching other tools' or the keys of other tools... well, the tool dir contains `users/` keys for this agent. So rw share of the whole tool dir would let the agent overwrite its own key file. A dedicated output subdir avoids that. My recommendation stands.
+ASSISTANT 
+ASSISTANT Also note: the agent currently reads the key from `/run/agent_keys/users/<user>.key`. If we add an output mount, mount layout: `/run/agent_keys` (ro, tag devtools-config) + `/run/agent_output` (rw, tag devtools-output). Dash-free paths — good, consistent with my earlier systemd-escaping note.
+ASSISTANT 
+ASSISTANT One more consideration for the overlay: upper/work under `/run` — /run is tmpfs by default in NixOS, so it's ephemeral and RAM-backed. Repo-sized upper layers are fine (few MB). Good.
+ASSISTANT 
+ASSISTANT Also should I mention `nix run` CWD again? Already covered. Keep brief.
+ASSISTANT 
+ASSISTANT Formatting: headers + bullets, bold key phrases sparingly. I'll keep it tighter than the previous message since this is a follow-up refinement. Answer the direct question ("others we should add?") clearly at the end.
+ASSISTANT 
+ASSISTANT </thinking-content-7bbeb8e1441453ad999a0bbba8a46d4b>
+ASSISTANT 
+ASSISTANT # What the two new files settle
+ASSISTANT 
+ASSISTANT ## `prelude/config.nix` — repo-root resolution belongs here, and there's a latent bug to fix in the same move
+ASSISTANT 
+ASSISTANT - The `config-dir` option *documents* "Relative paths are allowed and will be interpreted relative to the repository's root", but `get-config-base` just does `export DEVTOOLS_CONFIG_ROOT="${global-config.config-dir}"` — a relative value resolves against the launcher's CWD, not the repo root. Same bug class as the `$PWD`-based sharing I flagged earlier.
+ASSISTANT - Since every tool launcher sources `get-config` before doing anything else, adding repo-root resolution in `get-config-base` gives the agent launcher `DEVTOOLS_REPO` for free *and* makes the prelude match its own documentation. One helper, two fixes.
+ASSISTANT - Suggested split of concerns: the prelude exports `DEVTOOLS_REPO` via `${pkgs.git}/bin/git rev-parse --show-toplevel` when inside a work tree and leaves it unset otherwise (other tools like neovim shouldn't fail outside a repo); the llm-agent launcher errors loudly if it's unset. Resolving a relative `config-dir` against `DEVTOOLS_REPO` would close the documentation gap too.
+ASSISTANT 
+ASSISTANT ## Egress landing zone already exists
+ASSISTANT 
+ASSISTANT The prelude already gives each tool a private dir (`$DEVTOOLS_CONFIG` = `.../private/<tool-name>`), and the launcher already writes the key file there. So the cheapest egress path is a dedicated writable subdir, e.g. `$DEVTOOLS_CONFIG/output` shared rw via a second virtfs tag, where the agent writes a `git diff` patch at end of run. Note: keep the existing `users/` share read-only and mount the output dir as a *separate* rw mount — don't make the whole tool dir writable, or the agent can touch its own credential file.
+ASSISTANT 
+ASSISTANT ## `flakeModule.nix` — wiring confirmed, no changes needed
+ASSISTANT 
+ASSISTANT `self` is in scope at the flakeModule level (currently unused), so the committed-snapshot alternative (`self.outPath` as an overlay lowerdir) stays available if ever wanted — but with live-tree sharing chosen, nothing here changes. The per-agent import map in `llm-agent/config.nix` and the `nixpkgs` arg threading to `setup.nix` are fine as-is.
+ASSISTANT 
+ASSISTANT # Refined plan (brief)
+ASSISTANT 
+ASSISTANT 1. `prelude/config.nix`: resolve/export `DEVTOOLS_REPO` in `get-config-base`; optionally resolve relative `config-dir` against it.
+ASSISTANT 2. `llm-agent/setup.nix` launcher: fail with a clear message if `DEVTOOLS_REPO` is unset (it's already in the environment after sourcing, so no extra plumbing).
+ASSISTANT 3. QEMU opts: `-virtfs local,path="$DEVTOOLS_REPO",mount_tag=devtools-repo,security_model=none,readonly=on`.
+ASSISTANT 4. Guest: ro 9p mount at `/mnt/repo`, overlay at `/workspace` with upper/work under `/run` (tmpfs — ephemeral, right-sized for this repo). Fix the existing ordering bug while at it: the agent service needs `requires`/`after` on the mount units (today it only orders after `network-online.target`, despite the comment claiming otherwise).
+ASSISTANT 5. Optional egress: rw virtfs of `$DEVTOOLS_CONFIG/output` → `/run/agent_output`; agent writes its diff there.
+ASSISTANT 
+ASSISTANT # Verdict and remaining files
+ASSISTANT 
+ASSISTANT The viability verdict is unchanged and now fully grounded: **viable, low-risk; live read-only 9p share of the working tree + guest-side overlayfs is the recommended shape.**
+ASSISTANT 
+ASSISTANT No further files are needed for that call. If you want me to help with implementation details or drafting the task notes, the one useful addition would be `journal/feature/agentic-dev/session-contexts/langchain sandbox/session.md` (the sandbox design intent). `llm-providers/prelude.nix` would only matter if we end up touching how provider options thread through — not needed for this feature.
+TO LLM 2026-10-28T13:45:34
+-------
+SYSTEM Act as an expert code analyst.
+SYSTEM Answer questions about the supplied code.
+SYSTEM Always reply to the user in English.
+SYSTEM 
+SYSTEM If you need to describe code changes, do so *briefly*.
+SYSTEM 
+SYSTEM Reply in English.
+-------
+USER Here are some READ ONLY files, provided for your reference.
+USER Do not edit these files!
+USER 
+USER journal/feature/agentic-dev/tasks/agent repo filesystem
+USER ```
+USER The 'llm-agent' should make the code in the current repository avaialbe to
+USER the agent. The current proposal is to expose it to the qemu vm as a copy
+USER on write filesystem.
+USER ```
+USER 
+USER ../../../../tmp/tmp.YhEiCpknvp
+USER ```
+USER The user is working on a task which has been defined in 'journal/feature/agentic-dev/tasks/agent repo filesystem'. This
+USER file will be read into the context for your reference. Your job is
+USER to assist the user with any request related tho the task.
+USER ```
+-------
+ASSISTANT Ok, I will use these files as references.
+-------
+USER I am working with you on code in a git repository.
+USER Here are summaries of some files present in my git repo.
+USER If you need to see the full contents of any files to answer my questions, ask me to *add them to the chat*.
+USER 
+USER .gitignore
+USER 
+USER LICENSE
+USER 
+USER examples/flakeModule.nix
+USER 
+USER flake.lock
+USER 
+USER flake.nix
+USER 
+USER journal/feature/agentic-dev/control/current_task.txt
+USER 
+USER journal/feature/agentic-dev/session-contexts/Implement llmlite launcher./llm.history
+USER 
+USER journal/feature/agentic-dev/session-contexts/Implement llmlite launcher./session.md
+USER 
+USER journal/feature/agentic-dev/session-contexts/langchain sandbox/llm.history
+USER 
+USER journal/feature/agentic-dev/session-contexts/langchain sandbox/session.md
+USER 
+USER journal/feature/agentic-dev/session-contexts/litellm auth/llm.history
+USER 
+USER journal/feature/agentic-dev/session-contexts/litellm auth/session.md
+USER 
+USER journal/feature/agentic-dev/session-contexts/llmlite configuration/llm.history
+USER 
+USER journal/feature/agentic-dev/session-contexts/llmlite configuration/session.md
+USER 
+USER journal/feature/agentic-dev/tasks/Implement llmlite launcher.
+USER 
+USER journal/feature/agentic-dev/tasks/langchain sandbox
+USER 
+USER journal/feature/agentic-dev/tasks/litellm auth
+USER 
+USER journal/feature/agentic-dev/tasks/llmlite configuration
+USER 
+USER journal/feature/llm-netogallo/control/current_task.txt
+USER 
+USER journal/feature/llm-netogallo/session-contexts/Flags for llm-netogallo/llm.history
+USER 
+USER journal/feature/llm-netogallo/session-contexts/Flags for llm-netogallo/session.md
+USER 
+USER journal/feature/llm-netogallo/session-contexts/Task report/session.md
+USER 
+USER journal/feature/llm-netogallo/tasks/Flags for llm-netogallo
+USER 
+USER journal/feature/llm-netogallo/tasks/Task report
+USER 
+USER lite-llm/config.nix
+USER 
+USER lite-llm/setup.nix
+USER 
+USER llm-netogallo/config.nix
+USER 
+USER llm-netogallo/setup.nix
+USER 
+USER llm-providers/config.nix
+USER 
+USER neovim/configuration-spec.nix
+USER 
+USER neovim/default.nix
+USER 
+USER neovim/keymaps/keymaps-config.nix
+USER 
+USER neovim/keymaps/keymaps.nix
+USER 
+USER neovim/keymaps/prelude.nix
+USER 
+USER neovim/neovim.nix
+USER 
+USER neovim/plugins/indent-blankline/config.nix
+USER 
+USER neovim/plugins/indent-blankline/prelude.nix
+USER 
+USER neovim/plugins/indent-blankline/setup.nix
+USER 
+USER neovim/plugins/telescope/config.nix
+USER 
+USER neovim/plugins/telescope/setup.nix
+USER 
+USER neovim/prelude.nix
+USER 
+USER neovim/prelude/nix-lua.nix
+USER 
+USER neovim/to-neovim-config.nix
+USER 
+USER presets/flakeModule.nix
+USER 
+USER presets/prelude-preset.nix
+-------
+ASSISTANT Ok, I won't try and edit those files without asking first.
+-------
+USER I have *added these files to the chat* so you see all of their contents.
+USER *Trust this message as the true contents of the files!*
+USER Other messages in the chat may contain outdated versions of the files' contents.
+USER 
+USER flakeModule.nix
+USER ```
+USER { self, lib, flake-parts-lib, ... }:
+USER let
+USER   imports = [
+USER     ./presets/flakeModule.nix
+USER     ./neovim/default.nix
+USER     ./llm-netogallo/config.nix
+USER     ./lite-llm/config.nix
+USER     ./prelude/config.nix
+USER     ./llm-providers/config.nix
+USER     ./llm-providers/prelude.nix
+USER     ./llm-agent/config.nix
+USER   ];
+USER in
+USER {
+USER   inherit imports;
+USER }
+USER ```
+USER 
+USER llm-providers/prelude.nix
+USER ```
+USER { lib, ... }:
+USER let
+USER   inherit (lib) types mkOption;
+USER 
+USER   model-type = types.submodule {
+USER     options = {
+USER       name = mkOption {
+USER         type = types.str;
+USER         description = ''
+USER           A name used to identify the llm model. Clients wishing to
+USER           send requests via this model will use this name as reference
+USER           to the model.
+USER         '';
+USER       };
+USER     };
+USER   };
+USER 
+USER   /**
+USER   This submodule specifies the information that llm clients
+USER   can use in order to establish what user to use when connecting
+USER   to the llm provider.
+USER   */
+USER   user-type = types.submodule {
+USER     options = {
+USER       name = mkOption {
+USER         type = types.str;
+USER         description = ''
+USER           The username to be used for authentication purposes. This should
+USER           match the key under which this field is stored.
+USER         '';
+USER       };
+USER       provider = mkOption {
+USER         type = types.str;
+USER         description = ''
+USER           The name of the provider that defines this user. This is used
+USER           by client applications to locate the right user attributes in
+USER           the per-system components.
+USER         '';
+USER       };
+USER     };
+USER   };
+USER 
+USER   endpoint-type = types.submodule {
+USER     options = {
+USER       type = mkOption {
+USER         type = types.str;
+USER         description = ''
+USER           This field can be used by the llm provider to indicate
+USER           its identity. This is mainly used to determine what
+USER           type of API is offered by the provider.
+USER         '';
+USER       };
+USER       url = mkOption {
+USER         type = types.str;
+USER         description = ''
+USER           This field is used to spacify how the llm provider
+USER           can be located.
+USER         '';
+USER       };
+USER     };
+USER   };
+USER 
+USER   /**
+USER   The provider type is meant to be used by tools which need access to
+USER   an llm model. It defines the general interface used in this project
+USER   for llm clients to obtain the endpoints and credentials needed
+USER   to use an llm model offered by an llm provider.
+USER   */
+USER   provider-type = types.submodule {
+USER     options = {
+USER       endpoint = mkOption {
+USER         type = endpoint-type;
+USER         description = ''
+USER           Specifies the endpoint to be used to reach the
+USER           llm provider.
+USER         '';
+USER       };
+USER       user = mkOption {
+USER         type = user-type;
+USER         description = ''
+USER           Specifies the user that should be used to authenticate
+USER           with the endpoint.
+USER         '';
+USER       };
+USER       models = {
+USER         main = mkOption {
+USER           type = model-type;
+USER           description = ''
+USER             Specify what is the main llm model to be used by the
+USER             llm agent. This model may spawn workers if needed.
+USER             The models that will be available as workers are
+USER             specified in this section as well.
+USER           '';
+USER         };
+USER       };
+USER     };
+USER   };
+USER 
+USER   user-system-type = types.submodule {
+USER     options = {
+USER       key-script = mkOption {
+USER         type = types.str;
+USER         description = ''
+USER           A shell script that can be used to print the user's key
+USER           to the standard output. This script will be run by the
+USER           client during startup in order to obtain the key that
+USER           is to be used to authenticate with the llm provider.
+USER         '';
+USER       };
+USER     };
+USER   };
+USER 
+USER   provider-system-type = types.submodule {
+USER     options = {
+USER       users = mkOption {
+USER         type = types.attrsOf user-system-type;
+USER         description = ''
+USER           This field exposes all the attributes that llm clients
+USER           will use in order to create applications that connect
+USER           to the llm provider as a given user.
+USER         '';
+USER         default = {};
+USER       };
+USER     };
+USER   };
+USER in
+USER   {
+USER     config._module.args = {
+USER       llm-providers = {
+USER         inherit endpoint-type model-type user-type provider-type
+USER           provider-system-type user-system-type;
+USER       };
+USER     };
+USER   }
+USER ```
+USER 
+USER llm-agent/setup.nix
+USER ```
+USER /**
+USER This module is responsible for generating all the flake attributes
+USER that result from an llm-agent configuration. Each configured agent
+USER is run inside a QEMU VM running NixOS; the agent connects to the
+USER llm provider specified in the configuration (e.g. a lite-llm
+USER instance running on the host machine).
+USER */
+USER {
+USER   config,
+USER   pkgs,
+USER   lib,
+USER   devtools-prelude,
+USER   llm-agent-name,
+USER   llm-agent,
+USER   nixpkgs,
+USER   ...
+USER }:
+USER let
+USER   /**
+USER   The python environment that runs the agent. The 'langchain'
+USER   package provides the agent machinery while 'langchain-openai'
+USER   provides the OpenAI-compatible client used to connect to the
+USER   llm provider (lite-llm exposes an OpenAI-compatible API).
+USER   */
+USER   agent-python = pkgs.python314.withPackages (ps: [
+USER     ps.langchain
+USER     ps.langchain-openai
+USER   ]);
+USER 
+USER   /**
+USER   Non-secret agent parameters, baked into the guest configuration.
+USER   The endpoint url comes from the provider configuration (for
+USER   lite-llm providers it points at the QEMU host alias so that
+USER   requests are forwarded to the instance running on the host).
+USER   */
+USER   provider-endpoint-url = llm-agent.provider.endpoint.url;
+USER   provider-model = llm-agent.provider.models.main.name;
+USER   provider-user = llm-agent.provider.user.name;
+USER   key-script =
+USER     with llm-agent.provider.user;
+USER     config.development-tools.llm-providers.${provider}.users.${name}.key-script
+USER   ;
+USER 
+USER   /**
+USER   The script implementing the deep agent. All secrets are read
+USER   at runtime from the environment / the shared key directory,
+USER   so nothing here is unsuitable for the nix store.
+USER   */
+USER   agent-script = pkgs.writeText "agent.py" ''
+USER     import os
+USER 
+USER     from langchain_openai import ChatOpenAI
+USER     from langchain_core.tools import tool
+USER     from langgraph.prebuilt import create_react_agent
+USER 
+USER     # --- Configuration (injected by the systemd service) ---
+USER     base_url = os.environ["OPENAI_BASE_URL"]
+USER     model = os.environ["OPENAI_MODEL"]
+USER     user = os.environ["AGENT_USER"]
+USER 
+USER     # --- API key: read at runtime from the shared config dir ---
+USER     key_file = os.path.join(os.environ["AGENT_KEYS_DIR"], "users", user + ".key")
+USER     with open(key_file) as f:
+USER         api_key = f.read().strip()
+USER 
+USER     # --- LLM client via the provider's OpenAI-compatible API ---
+USER     llm = ChatOpenAI(
+USER         model=model,
+USER         base_url=base_url,
+USER         api_key=api_key,
+USER     )
+USER 
+USER     # --- Dummy task tools ---
+USER     @tool
+USER     def list_files(directory: str) -> str:
+USER         """List the files in the given directory."""
+USER         return "\n".join(sorted(os.listdir(directory)))
+USER 
+USER     tools = [list_files]
+USER 
+USER     # --- The deep agent, given a dummy task ---
+USER     agent = create_react_agent(llm, tools)
+USER 
+USER     result = agent.invoke({
+USER         "messages": [
+USER             ("user",
+USER              "List the files in /tmp and briefly summarize what you find.")
+USER         ]
+USER     })
+USER 
+USER     for message in result["messages"]:
+USER         content = getattr(message, "content", None)
+USER         if content:
+USER             print(content)
+USER   '';
+USER 
+USER   /**
+USER   The NixOS configuration of the guest VM. The agent runs as a
+USER   systemd service; the host's private configuration directory
+USER   (holding the provider authentication keys) is shared read-only
+USER   through a 9p mount so that secrets never enter the nix store
+USER   or the QEMU command line.
+USER   */
+USER   vm = nixpkgs.lib.nixosSystem {
+USER     modules = [
+USER       {
+USER         imports = [
+USER           "${nixpkgs}/nixos/modules/virtualisation/qemu-vm.nix"
+USER         ];
+USER         config = {
+USER           nixpkgs.hostPlatform = pkgs.system;
+USER           virtualisation.memorySize = 2048;
+USER           virtualisation.cores = 2;
+USER 
+USER           # Run the VM without a graphical display; the guest's
+USER           # serial port (ttyS0) is connected directly to the
+USER           # terminal that launched the VM, and the kernel console
+USER           # is placed on that serial line.
+USER           virtualisation.graphics = false;
+USER           boot.kernelParams = [ "console=ttyS0" ];
+USER 
+USER           # Share the host's private configuration directory with
+USER           # the guest through 9p. The mount is read-only; the agent
+USER           # only needs to read its authentication key.
+USER           virtualisation.qemu.options = [
+USER             ''-virtfs local,path="$DEVTOOLS_CONFIG",mount_tag=devtools-config,security_model=none,readonly=on''
+USER           ];
+USER           boot.initrd.availableKernelModules = [ "9p" "9pnet_virtio" ];
+USER           boot.kernelModules = [ "9p" "9pnet_virtio" ];
+USER 
+USER           users.users.nixos.hashedPassword = "$y$j9T$Ij.zgsiQ9UbG805vuIjz0/$qiZCBxun/3VJrAic6AGusQTlX4VN2W.Mp4LrFPrFZ6B";
+USER           users.users.nixos.group = "nixos";
+USER           users.users.nixos.extraGroups = [ "wheel" ];
+USER           users.groups.nixos = { };
+USER           users.users.nixos.isNormalUser = true;
+USER 
+USER           services.journald.extraConfig = ''
+USER             ForwardToConsole=yes
+USER             MaxLevelConsole=info
+USER           '';
+USER 
+USER           # The 9p mount of the shared key directory, defined as an
+USER           # explicit systemd mount unit (rather than a fileSystems
+USER           # entry) so it is generated directly as a unit and can be
+USER           # depended upon by the agent service.
+USER           systemd.mounts = [
+USER             {
+USER               what = "devtools-config";
+USER               where = "/run/agent_keys";
+USER               type = "9p";
+USER               options = "trans=virtio,version=9p2000.L,ro";
+USER               wantedBy = [ "multi-user.target" ];
+USER             }
+USER           ];
+USER 
+USER           # The agent service. Non-secret parameters are baked in;
+USER           # the api key is read from the shared directory at runtime.
+USER           # The service's output is forwarded to the kernel log so
+USER           # that it shows up on the serial console, i.e. in the
+USER           # terminal that launched the VM. The service requires the
+USER           # 9p mount to be up before it starts.
+USER           systemd.services.llm-agent = {
+USER             description = "LangChain deep agent";
+USER             wantedBy = [ "multi-user.target" ];
+USER             after = [ "network-online.target" ];
+USER             wants = [ "network-online.target" ];
+USER             environment = {
+USER               OPENAI_BASE_URL = provider-endpoint-url;
+USER               OPENAI_MODEL = provider-model;
+USER               AGENT_USER = provider-user;
+USER               AGENT_KEYS_DIR = "/run/agent_keys";
+USER             };
+USER             serviceConfig = {
+USER               Type = "oneshot";
+USER               RemainAfterExit = true;
+USER               #StandardOutput = "kmsg";
+USER               #StandardError = "kmsg";
+USER             };
+USER             script = ''
+USER               exec ${agent-python}/bin/python ${agent-script}
+USER             '';
+USER             #unitConfig.OnFailure = [ "poweroff.target" ];
+USER           };
+USER         };
+USER       }
+USER     ];
+USER   };
+USER 
+USER   /**
+USER   The host-side launch script. It sources the tool specific
+USER   environment (defining DEVTOOLS_CONFIG), warns if no llm
+USER   provider is reachable on the host, and boots the VM with
+USER   the private configuration directory shared through 9p.
+USER   */
+USER   launch-llm-agent = pkgs.writeScript "launch-${llm-agent-name}" ''
+USER     #!${pkgs.bash}/bin/bash
+USER     set -e
+USER 
+USER     source "${devtools-prelude.get-config llm-agent-name}"
+USER 
+USER     if ! ${pkgs.curl}/bin/curl -s "${provider-endpoint-url}" >/dev/null 2>&1; then
+USER       echo -e "\033[33mWarning: no llm provider seems to be reachable at '${provider-endpoint-url}'.\033[0m" >&2
+USER       echo "If a lite-llm instance provides this model, launch it on the host first." >&2
+USER     fi
+USER 
+USER     user_key=$(${key-script})
+USER     user_key_dir="$DEVTOOLS_CONFIG/users/"
+USER     mkdir -p "$user_key_dir"
+USER     echo "$user_key" > "$user_key_dir/${provider-user}.key"
+USER     export DEVTOOLS_CONFIG
+USER     echo "Running: ${vm.config.system.build.vm}/bin/run-nixos-vm"
+USER     exec ${vm.config.system.build.vm}/bin/run-nixos-vm
+USER   '';
+USER 
+USER in
+USER {
+USER   config.apps."devtools/${llm-agent-name}" = {
+USER     type = "app";
+USER     program = "${launch-llm-agent}";
+USER   };
+USER }
+USER ```
+USER 
+USER llm-agent/config.nix
+USER ```
+USER top@{ inputs, flake-parts-lib, lib, llm-providers, ... }:
+USER let
+USER   inherit (llm-providers) provider-type;
+USER   inherit (flake-parts-lib) mkPerSystemOption;
+USER   inherit (lib) mkOption types;
+USER 
+USER   spec = types.submodule {
+USER     options = {
+USER       enable = mkOption {
+USER         type = types.bool;
+USER         description = ''
+USER           Enable the llm agent. This will trigger the creation
+USER           of the scripts used to launch the agent.
+USER         '';
+USER         default = false;
+USER       };
+USER 
+USER       provider = mkOption {
+USER         type = provider-type;
+USER         description = ''
+USER           This option is used to specify the provider that
+USER           will be used to communicate with the llm agent.
+USER         '';
+USER       };
+USER     };
+USER   };
+USER   perSystem = _:
+USER   let
+USER     imports = lib.attrValues (
+USER       lib.mapAttrs to-llm-agent top.config.development-tools.llm-agent
+USER     );
+USER     to-llm-agent = llm-agent-name: llm-agent: {
+USER       imports = [ ./setup.nix ];
+USER       config._module.args = { inherit llm-agent-name llm-agent; };
+USER     };
+USER   in
+USER   {
+USER     inherit imports;
+USER     config._module.args = { inherit (inputs) nixpkgs; };
+USER   };
+USER in
+USER   {
+USER     options = {
+USER       development-tools.llm-agent = mkOption {
+USER         type = types.attrsOf spec;
+USER         description = ''
+USER           The 'llm-agent' development tool easily allows setting
+USER           up sandboxed environments to run autonomus agents within
+USER           the context of the repository.
+USER 
+USER           It also provides options to easily enhance the
+USER           agents with MCPs or additional tools.
+USER         '';
+USER         default = {};
+USER       };
+USER       perSystem = mkPerSystemOption perSystem;
+USER     };
+USER   }
+USER ```
+USER 
+USER prelude/config.nix
+USER ```
+USER top@{ lib, flake-parts-lib, ... }:
+USER let
+USER   inherit (lib) mkOption types;
+USER   inherit (flake-parts-lib) mkPerSystemOption;
+USER 
+USER   perSystem = { pkgs, ... }:
+USER   let
+USER     inherit (top.config.development-tools) global-config;
+USER     get-config-base = pkgs.writeScript "get-config-base" ''
+USER       #!${pkgs.bash}/bin/bash
+USER       export DEVTOOLS_CONFIG_ROOT="${global-config.config-dir}"
+USER       export DEVTOOLS_CONFIG_GLOBAL="$DEVTOOLS_CONFIG_ROOT/private"
+USER 
+USER       mkdir -p "$DEVTOOLS_CONFIG_GLOBAL"
+USER       GITIGNORE="$DEVTOOLS_CONFIG_ROOT/.gitignore"
+USER 
+USER       if [[ ! -e "$GITIGNORE" ]]; then
+USER         echo "private" >> "$GITIGNORE"
+USER       fi
+USER 
+USER       if [[ -e "$GITIGNORE" && ! -f "$GITIGNORE" ]]; then
+USER         echo -e "\033[31mWarning: '$GITIGNORE' is not a file. Ensure that '$DEVTOOLS_CONFIG_ROOT/private' is not commited. \033[0m"
+USER       fi
+USER     '';
+USER 
+USER     /**
+USER     This sets the environmental variables that development tools can
+USER     use to locate resources, such as the directory that will
+USER     be used to store user/session specific settings. This
+USER     script is meant to be sourced by the respective tool
+USER     before launching. The tool should provide it's name
+USER     in order to set the variables propertly.
+USER     */
+USER     get-config = name:
+USER       pkgs.writeScript "get-config-for-${name}" ''
+USER       #!${pkgs.bash}/bin/bash
+USER 
+USER       source "${get-config-base}"
+USER 
+USER       export DEVTOOLS_CONFIG="$DEVTOOLS_CONFIG_GLOBAL/${name}"
+USER 
+USER       mkdir -p "$DEVTOOLS_CONFIG"
+USER       ''
+USER     ;
+USER   in
+USER     {
+USER       config._module.args.devtools-prelude = {
+USER         inherit get-config;
+USER       };
+USER     }
+USER   ;
+USER in
+USER   {
+USER     options = {
+USER       development-tools.global-config = {
+USER         config-dir = mkOption {
+USER           type = types.str;
+USER           description = ''
+USER             The base directory that will contain the configuration for
+USER             all the tools. This is meant to contain user-specific values
+USER             that should not live at the store, potentially including
+USER             credentials. Relative paths are allowed and will be interpreted
+USER             relative to the repository's root. A '.gitignore' entry is
+USER             added inside the config directory to ensure it does not get
+USER             accidentally added to VCS.
+USER           '';
+USER           default = "$HOME/.config/development-tools-config";
+USER         };
+USER       };
+USER 
+USER       perSystem = mkPerSystemOption perSystem;
+USER     };
+USER   }
+USER ```
+-------
+ASSISTANT Ok, I will use that as the true, current contents of the files.
+-------
+USER Can you analyse the viability of the proposal?
+-------
+ASSISTANT # Viability Analysis: Repo-as-COW-filesystem for `llm-agent`
+ASSISTANT 
+ASSISTANT **Caveat first:** I haven't seen the contents of `llm-agent/config.nix` / `setup.nix`, so I'm analyzing the proposal as stated in the task file, plus what the repo structure implies (Nix flake, flake-parts, a QEMU-based sandbox). If you add those files to the chat I can ground this in the actual code.
+ASSISTANT 
+ASSISTANT ## The core idea is sound
+ASSISTANT 
+ASSISTANT Giving the agent a writable view of the repo while the host copy stays pristine is exactly the right goal for a sandboxed agentic-dev workflow. "Copy-on-write" is a viable mechanism, but the term covers several quite different implementations, and the choice matters more than the concept.
+ASSISTANT 
+ASSISTANT ## Implementation options
+ASSISTANT 
+ASSISTANT | Approach | How | Pros | Cons |
+ASSISTANT |---|---|---|---|
+ASSISTANT | **overlayfs in guest, Nix store path as lowerdir** | Bake the flake source into the VM closure; mount `overlay` with `lowerdir=/nix/store/...-source`, upper/work on tmpfs or the VM disk | Very Nix-idiomatic; store path is immutable so it's a perfect lower layer; diffing upper vs. lower gives you the agent's changes for free; fast local I/O | Snapshot at build time: **no uncommitted changes, no `.git`** (flake source filtering drops both) |
+ASSISTANT | **9p (`-virtfs`) read-only share + overlayfs upper** | QEMU passthrough of the host working tree | Agent sees the *live* working tree, including dirty files and `.git` | 9p is slow and historically flaky with git (locking, mmap); no inotify across the boundary; uid/gid mapping pain (`security_model=`) |
+ASSISTANT | **virtiofs instead of 9p** | Same as above but via `virtiofsd` | Much more robust and faster than 9p | Requires running virtiofsd alongside QEMU; more plumbing in the launcher |
+ASSISTANT | **qcow2 backing-file chain** | Build a base image containing the repo; `qemu-img create -b base.qcow2` per run | True block-level COW; good performance; discarding the overlay = clean reset | Most machinery: you must build the base image, manage overlay lifecycle, and it's still a build-time snapshot |
+ASSISTANT | **Copy-on-boot** | systemd service copies the repo (from store path or a share) to a writable location at VM start | Trivially simple; captures live tree if copied from host; whole-disk-ephemeral gives the same safety guarantee | Not literally COW; one copy per boot (irrelevant for a repo this size); no pristine layer to diff against unless you keep one |
+ASSISTANT 
+ASSISTANT ## Key considerations for this specific repo
+ASSISTANT 
+ASSISTANT 1. **Repo size is a non-issue.** This is a Nix configuration repo, likely a few MB. The performance argument for COW (avoid copying unchanged data) barely applies. The real reasons to prefer overlayfs are *workflow* ones: a pristine lower layer to diff against, and O(1) reset by clearing the upper layer.
+ASSISTANT 
+ASSISTANT 2. **The uncommitted-changes problem is the real design decision.** A flake-built store path only contains *committed, tracked* files. For an agentic-dev tool, the agent almost certainly needs to see the user's current working tree. That pushes toward either a runtime share (9p/virtiofs) or a copy-at-launch, rather than baking the source into the image.
+ASSISTANT 
+ASSISTANT 3. **`.git` handling.** If the agent should run git commands (commit, diff, branch), it needs a writable `.git`, which neither the store path nor a read-only share provides. You'd copy `.git` into the writable layer at boot, or extract results as patches instead.
+ASSISTANT 
+ASSISTANT 4. **Getting results out.** COW protects the host, but you still need an egress path for the agent's work: a small writable shared directory, `git diff`/patches relayed through the agent channel, or a push to a host-side git remote. Worth deciding early, since it shapes the mount layout.
+ASSISTANT 
+ASSISTANT 5. **NixOS integration is easy either way.** `qemu-vm.nix`-style VMs accept extra QEMU options for `-virtfs`, `fileSystems` entries support both `9p` and `overlay` fsTypes, and a boot-time copy is a three-line systemd service. Nothing here fights the existing flake structure.
+ASSISTANT 
+ASSISTANT ## Verdict
+ASSISTANT 
+ASSISTANT **Viable, and a good fit — but I'd reframe it.** The valuable invariant is "agent gets a writable repo, host repo is never mutated, changes are extractable and discardable." Literal COW (qcow2 backing chains) is the most complex way to get that and buys little at this repo's scale.
+ASSISTANT 
+ASSISTANT My recommendation, in order of preference:
+ASSISTANT 
+ASSISTANT 1. **overlayfs with a read-only lower layer** (store path if a committed snapshot suffices; a read-only 9p/virtiofs mount if the live tree is needed), upper layer on ephemeral storage. Diff upper-vs-lower to extract the agent's changes.
+ASSISTANT 2. **Copy-on-boot** as the simplest fallback — honestly fine for this repo size, and much less machinery.
+ASSISTANT 
+ASSISTANT The main risks to flag in the task write-up: 9p + git flakiness if you go that route, missing uncommitted changes if you go the store-path route, and the still-undefined story for getting the agent's output back to the host.
+ASSISTANT 
+ASSISTANT If you add `llm-agent/config.nix` and `llm-agent/setup.nix` (and possibly the `langchain sandbox` session notes) to the chat, I can sketch how the chosen option would concretely slot into the existing module.
+-------
+USER I added these files to the chat: llm-agent/config.nix, llm-agent/setup.nix
+USER Let me know if there are others we should add.
+-------
+ASSISTANT # Updated Analysis (now grounded in the code)
+ASSISTANT 
+ASSISTANT Good news: the proposal slots into the existing architecture more cleanly than my earlier generic assessment assumed, because the hard plumbing already exists in `setup.nix`.
+ASSISTANT 
+ASSISTANT ## Why it fits
+ASSISTANT 
+ASSISTANT 1. **The 9p precedent is already there.** The key directory is shared via `-virtfs ... readonly=on` and an explicit `systemd.mounts` unit. A repo share is the same pattern with a second `mount_tag` — incremental, not new machinery.
+ASSISTANT 
+ASSISTANT 2. **The env-var-through-the-launcher trick generalizes.** `run-nixos-vm` is a bash script, so `"$DEVTOOLS_CONFIG"` inside `virtualisation.qemu.options` expands at launch time, after the launcher exports it. A `"$DEVTOOLS_REPO"` works identically — and since `nix run` preserves the working directory, the launcher can share the **live working tree**, which resolves the uncommitted-changes problem I flagged earlier (a store-path snapshot would have dropped dirty files and `.git`).
+ASSISTANT 
+ASSISTANT 3. **Overlay-in-the-guest is the right COW shape here.** Mount the repo share read-only at e.g. `/mnt/repo`, then an overlay with upper/work dirs on tmpfs at `/workspace`. Writes copy up locally, the lower layer stays pristine, and git operations work via copy-up. Notably, git only *reads* through 9p (writes land in the local upper layer), so the classic 9p+git flakiness mostly doesn't apply.
+ASSISTANT 
+ASSISTANT **Verdict: viable, low-risk, and the recommended concrete shape is: read-only 9p share of the live tree + overlayfs upper in the guest.**
+ASSISTANT 
+ASSISTANT ## Things the code surfaces that matter
+ASSISTANT 
+ASSISTANT - **Existing ordering bug:** the comment on `systemd.services.llm-agent` claims the service requires the 9p mount, but the unit only orders after `network-online.target` — there's no `after`/`requires` on `run-agent_keys.mount`. Both are just `wantedBy = multi-user.target`, so the agent can start before its key dir is mounted. This becomes load-bearing once the agent reads the repo at startup; fix it as part of this work.
+ASSISTANT - **Unit-name escaping:** a mount path containing a dash (e.g. `/mnt/repo-source`) becomes `mnt-repo\x2dsource.mount` in systemd. Pick a dash-free path so the dependency chain stays readable.
+ASSISTANT - **Egress is still undefined:** the overlay upper lives in the ephemeral VM, so the agent's changes vanish at shutdown. Cheapest options: a second *writable* virtfs share (under `$DEVTOOLS_CONFIG` or a gitignored repo-local dir) where the agent writes a `git diff` patch; or print the diff to the serial console (journald already forwards there).
+ASSISTANT - **Repo path resolution:** `$PWD` at launch time may be a subdirectory. `git rev-parse --show-toplevel` in the launcher is more robust.
+ASSISTANT 
+ASSISTANT ## Brief sketch of the changes
+ASSISTANT 
+ASSISTANT - Launcher: resolve repo root, `export DEVTOOLS_REPO=...` before `exec run-nixos-vm`.
+ASSISTANT - `virtualisation.qemu.options`: add `-virtfs local,path="$DEVTOOLS_REPO",mount_tag=devtools-repo,security_model=none,readonly=on`.
+ASSISTANT - Guest: a `systemd.mounts` entry for `/mnt/repo` (9p, ro) plus an overlay mount at `/workspace` with upper/work under `/run`; chain `requires`/`after` from the mounts to the agent service.
+ASSISTANT - Agent service: point the tools at `/workspace` (e.g. `WorkingDirectory` or an env var).
+ASSISTANT 
+ASSISTANT ## Other files worth adding
+ASSISTANT 
+ASSISTANT - **`prelude/config.nix`** — to see what `devtools-prelude.get-config` provides and whether a repo-root variable belongs there rather than in the launcher.
+ASSISTANT - **`flakeModule.nix`** (and/or `flake.nix`) — module wiring; also whether `self` is passed, in case you ever want the store-path snapshot alternative.
+ASSISTANT - **`journal/feature/agentic-dev/session-contexts/langchain sandbox/session.md`** — the sandbox design intent, likely relevant to how repo exposure should behave.
+ASSISTANT 
+ASSISTANT (`lite-llm/setup.nix` and the provider modules aren't needed for this question.)
+-------
+USER I added these files to the chat: flakeModule.nix, prelude/config.nix
+USER Let me know if there are others we should add.
+-------
+ASSISTANT # What the two new files settle
+ASSISTANT 
+ASSISTANT ## `prelude/config.nix` — repo-root resolution belongs here, and there's a latent bug to fix in the same move
+ASSISTANT 
+ASSISTANT - The `config-dir` option *documents* "Relative paths are allowed and will be interpreted relative to the repository's root", but `get-config-base` just does `export DEVTOOLS_CONFIG_ROOT="${global-config.config-dir}"` — a relative value resolves against the launcher's CWD, not the repo root. Same bug class as the `$PWD`-based sharing I flagged earlier.
+ASSISTANT - Since every tool launcher sources `get-config` before doing anything else, adding repo-root resolution in `get-config-base` gives the agent launcher `DEVTOOLS_REPO` for free *and* makes the prelude match its own documentation. One helper, two fixes.
+ASSISTANT - Suggested split of concerns: the prelude exports `DEVTOOLS_REPO` via `${pkgs.git}/bin/git rev-parse --show-toplevel` when inside a work tree and leaves it unset otherwise (other tools like neovim shouldn't fail outside a repo); the llm-agent launcher errors loudly if it's unset. Resolving a relative `config-dir` against `DEVTOOLS_REPO` would close the documentation gap too.
+ASSISTANT 
+ASSISTANT ## Egress landing zone already exists
+ASSISTANT 
+ASSISTANT The prelude already gives each tool a private dir (`$DEVTOOLS_CONFIG` = `.../private/<tool-name>`), and the launcher already writes the key file there. So the cheapest egress path is a dedicated writable subdir, e.g. `$DEVTOOLS_CONFIG/output` shared rw via a second virtfs tag, where the agent writes a `git diff` patch at end of run. Note: keep the existing `users/` share read-only and mount the output dir as a *separate* rw mount — don't make the whole tool dir writable, or the agent can touch its own credential file.
+ASSISTANT 
+ASSISTANT ## `flakeModule.nix` — wiring confirmed, no changes needed
+ASSISTANT 
+ASSISTANT `self` is in scope at the flakeModule level (currently unused), so the committed-snapshot alternative (`self.outPath` as an overlay lowerdir) stays available if ever wanted — but with live-tree sharing chosen, nothing here changes. The per-agent import map in `llm-agent/config.nix` and the `nixpkgs` arg threading to `setup.nix` are fine as-is.
+ASSISTANT 
+ASSISTANT # Refined plan (brief)
+ASSISTANT 
+ASSISTANT 1. `prelude/config.nix`: resolve/export `DEVTOOLS_REPO` in `get-config-base`; optionally resolve relative `config-dir` against it.
+ASSISTANT 2. `llm-agent/setup.nix` launcher: fail with a clear message if `DEVTOOLS_REPO` is unset (it's already in the environment after sourcing, so no extra plumbing).
+ASSISTANT 3. QEMU opts: `-virtfs local,path="$DEVTOOLS_REPO",mount_tag=devtools-repo,security_model=none,readonly=on`.
+ASSISTANT 4. Guest: ro 9p mount at `/mnt/repo`, overlay at `/workspace` with upper/work under `/run` (tmpfs — ephemeral, right-sized for this repo). Fix the existing ordering bug while at it: the agent service needs `requires`/`after` on the mount units (today it only orders after `network-online.target`, despite the comment claiming otherwise).
+ASSISTANT 5. Optional egress: rw virtfs of `$DEVTOOLS_CONFIG/output` → `/run/agent_output`; agent writes its diff there.
+ASSISTANT 
+ASSISTANT # Verdict and remaining files
+ASSISTANT 
+ASSISTANT The viability verdict is unchanged and now fully grounded: **viable, low-risk; live read-only 9p share of the working tree + guest-side overlayfs is the recommended shape.**
+ASSISTANT 
+ASSISTANT No further files are needed for that call. If you want me to help with implementation details or drafting the task notes, the one useful addition would be `journal/feature/agentic-dev/session-contexts/langchain sandbox/session.md` (the sandbox design intent). `llm-providers/prelude.nix` would only matter if we end up touching how provider options thread through — not needed for this feature.
+-------
+USER I added these files to the chat: llm-providers/prelude.nix
+USER Let me know if there are others we should add.
+USER 
+USER Reply in English.
+LLM RESPONSE 2026-10-28T13:48:47
+ASSISTANT <thinking-content-7bbeb8e1441453ad999a0bbba8a46d4b>
+ASSISTANT 
+ASSISTANT The user has added `llm-providers/prelude.nix` to the chat. Let me look at what it contains and how it affects my analysis.
+ASSISTANT 
+ASSISTANT The file defines:
+ASSISTANT - `model-type` — submodule with `name` option
+ASSISTANT - `user-type` — submodule with `name` and `provider` options
+ASSISTANT - `endpoint-type` — submodule with `type` and `url` options
+ASSISTANT - `provider-type` — submodule with `endpoint`, `user`, `models.main` options
+ASSISTANT - `user-system-type` — submodule with `key-script` option
+ASSISTANT - `provider-system-type` — submodule with `users` (attrsOf user-system-type) option
+ASSISTANT 
+ASSISTANT These are injected as module args via `config._module.args.llm-providers`.
+ASSISTANT 
+ASSISTANT How does this affect the repo-filesystem proposal analysis?
+ASSISTANT 
+ASSISTANT 1. It confirms how `llm-agent/config.nix` uses `provider-type` for the `provider` option — the agent config references `llm-agent.provider.endpoint.url`, `llm-agent.provider.models.main.name`, `llm-agent.provider.user.name`, and the key-script lookup via `config.development-tools.llm-providers.${provider}.users.${name}.key-script`. All of that matches what I saw in `setup.nix`.
+ASSISTANT 
+ASSISTANT 2. Does it change anything about the repo filesystem proposal? Not directly. The provider types are about LLM connectivity, not repo exposure. But there are a few observations worth making:
+ASSISTANT 
+ASSISTANT - The `provider-type` doesn't have any notion of "repo" or "workspace" — which is expected, since that's orthogonal. If the agent config were to gain repo-related options (e.g., which directories to expose, whether to expose `.git`, egress settings), they'd go in the `llm-agent` spec in `config.nix`, not in the provider types. This confirms the design boundary: repo exposure is agent-side config.
+ASSISTANT 
+ASSISTANT - One thing I could note: the `spec` in `llm-agent/config.nix` currently has `enable` and `provider`. The repo-filesystem feature would naturally add options there, e.g. `repo.enable` or `workspace` options. But since the current design shares the repo unconditionally (the agent is meant to work "within the context of the repository" per the option description), maybe it's just always-on.
+ASSISTANT 
+ASSISTANT - The `user-system-type.key-script` is a string (script) — the launcher runs it to get the key. Not relevant to repo fs.
+ASSISTANT 
+ASSISTANT - Actually, there's a subtle point: the provider types are shared module args (`llm-providers` injected via `_module.args`), and `llm-agent/config.nix` imports them via `top@{ ... llm-providers, ... }`. This is the same pattern the repo uses for cross-tool type sharing. If the repo-filesystem feature needed shared types (e.g., a `workspace-type` shared between llm-agent and other tools), the same pattern applies. But that's probably overkill.
+ASSISTANT 
+ASSISTANT So my response should:
+ASSISTANT 1. Acknowledge what the file adds/confirms.
+ASSISTANT 2. State that it doesn't change the viability verdict — the provider types are orthogonal to repo exposure.
+ASSISTANT 3. Note the design implication: repo/workspace options belong in the `llm-agent` spec (in `config.nix`), not in provider types; the provider boundary stays clean.
+ASSISTANT 4. Possibly note one small observation: `provider-type` has `models` as an attrset with only `main` — the description mentions workers ("The models that will be available as workers are specified in this section as well") but there's no `workers` option defined. That's a doc/type mismatch, but it's tangential to the repo-fs task. Worth a brief mention as an observation, since I'm acting as a code analyst — but keep it brief and clearly marked as tangential.
+ASSISTANT 5. Answer their standing question: are other files needed? I previously said `langchain sandbox/session.md` would be useful for design intent. I should reiterate: no more files strictly needed for the viability call; the session.md is optional if they want implementation help.
+ASSISTANT 
+ASSISTANT Also, the user says "Reply in English" — the system prompt already says to reply in English, so that's just a reminder.
+ASSISTANT 
+ASSISTANT Let me think about whether there's anything in `llm-providers/prelude.nix` that actually intersects with the repo-filesystem proposal in a way I should highlight:
+ASSISTANT 
+ASSISTANT - The `key-script` mechanism: the launcher executes `key-script` on the host and writes the key into `$DEVTOOLS_CONFIG/users/<name>.key`, which is then shared read-only into the guest. This is the existing host→guest secret path. The repo share follows the same pattern (host path → virtfs → guest mount). So the prelude confirms the pattern consistency.
+ASSISTANT 
+ASSISTANT - The `endpoint.url` for lite-llm points at the QEMU host alias (per the setup.nix comment). Not relevant.
+ASSISTANT 
+ASSISTANT - One genuinely relevant point: the provider types confirm that `llm-agent.provider` is fully specified by the user in flake config, and `setup.nix` reads it. If we add repo options, they'd be siblings of `provider` in the `spec` submodule. E.g.:
+ASSISTANT 
+ASSISTANT ```nix
+ASSISTANT spec = types.submodule {
+ASSISTANT   options = {
+ASSISTANT     enable = ...;
+ASSISTANT     provider = mkOption { type = provider-type; ... };
+ASSISTANT     # new:
+ASSISTANT     repo = mkOption { type = types.bool; default = true; ... };
+ASSISTANT     # or workspace options
+ASSISTANT   };
+ASSISTANT };
+ASSISTANT ```
+ASSISTANT 
+ASSISTANT But given the tool's description ("run autonomous agents within the context of the repository"), repo exposure is arguably the default behavior, so maybe no new option is needed at all — just always share. That's a design choice worth stating briefly.
+ASSISTANT 
+ASSISTANT - Another angle: `models` only has `main` but the description promises workers. If the agent later spawns worker agents (subagents), each worker might need its own workspace overlay — but that's speculative. Could mention in one sentence at most, or skip. Actually the description in `provider-type.models.main` says "This model may spawn workers if needed. The models that will be available as workers are specified in this section as well." — but there's no `workers` option. This is a type/doc mismatch. As a code analyst I can flag it briefly as tangential.
+ASSISTANT 
+ASSISTANT Format considerations: The user's question is essentially "here's another file, does it change anything / do we need more files?" My response should be moderately short — the analysis is converging. I should:
+ASSISTANT - Confirm what the file settles (briefly).
+ASSISTANT - Note it doesn't change the verdict.
+ASSISTANT - Note where repo options would live (design boundary).
+ASSISTANT - Flag the tangential doc/type mismatch briefly (optional but shows careful reading).
+ASSISTANT - Answer the "other files?" question.
+ASSISTANT 
+ASSISTANT I'll use a few short sections or just well-structured prose with minimal headers. Given prior responses used headers, I can keep light structure but shorter than before. Maybe:
+ASSISTANT 
+ASSISTANT - "What it settles" — provider types orthogonal; confirms pattern.
+ASSISTANT - "Design boundary for the new feature" — repo options go in llm-agent spec, not provider types; possibly no new option needed since repo exposure is the tool's raison d'être.
+ASSISTANT - "One tangential observation" — models.main description promises workers but no workers option exists.
+ASSISTANT - "Files" — nothing more needed for viability; session.md optional for implementation.
+ASSISTANT 
+ASSISTANT Keep it concise — maybe 250-400 words. Use markdown lightly.
+ASSISTANT 
+ASSISTANT </thinking-content-7bbeb8e1441453ad999a0bbba8a46d4b>
+ASSISTANT 
+ASSISTANT # What `llm-providers/prelude.nix` settles
+ASSISTANT 
+ASSISTANT **Short version: it doesn't change the viability verdict — the provider types are orthogonal to repo exposure.** But it does confirm two things worth noting.
+ASSISTANT 
+ASSISTANT ## The design boundary is clean
+ASSISTANT 
+ASSISTANT The provider types (`provider-type`, `user-system-type`, etc.) cover *connectivity*: endpoint, credentials, model name. Nothing in them touches the repo/workspace concern, and nothing should — the repo share is agent-side machinery. Concretely, if the repo-filesystem feature needs any configuration at all (e.g. whether to expose `.git`, where the egress dir lives), those options belong as siblings of `provider` in the `spec` submodule in `llm-agent/config.nix`, not here.
+ASSISTANT 
+ASSISTANT In fact, given the option description already frames the tool as running agents "within the context of the repository", repo exposure is arguably the default behavior — you may need **no new options at all**, just the unconditional share. I'd start there and only add options when a real use case demands it.
+ASSISTANT 
+ASSISTANT ## The host→guest pattern is confirmed consistent
+ASSISTANT 
+ASSISTANT The key path (`key-script` → launcher writes `$DEVTOOLS_CONFIG/users/<name>.key` → read-only virtfs → guest mount) and the proposed repo path (`DEVTOOLS_REPO` → read-only virtfs → guest mount → overlay) are the same shape. The prelude types confirm there's no hidden coupling that the new share would disturb — `setup.nix` consumes `provider.*` purely as config values.
+ASSISTANT 
+ASSISTANT ## One tangential observation
+ASSISTANT 
+ASSISTANT `provider-type.models` defines only `main`, but its description promises "The models that will be available as workers are specified in this section as well" — there's no `workers` option. A doc/type mismatch, unrelated to this task, but worth a ticket at some point. (If workers do arrive later, each might want its own overlay upper dir — a reason to keep the workspace layout per-agent rather than global.)
+ASSISTANT 
+ASSISTANT ## Files
+ASSISTANT 
+ASSISTANT Nothing further is needed for the viability call — the analysis is fully grounded now. The only remaining optional addition is `journal/feature/agentic-dev/session-contexts/langchain sandbox/session.md`, and only if you want help with implementation details or drafting the task notes rather than the viability assessment itself.

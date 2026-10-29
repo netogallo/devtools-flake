@@ -70,5 +70,11 @@ in
           main = models.master;
         };
       };
+      git = {
+        enable = true;
+        authorized-keys = [
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMvWsBQT8JJe7UckvF2+zdsVbgtof2jhenQqQgdC6oOS neto@nixos"
+        ];
+      };
     };
   }

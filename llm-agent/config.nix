@@ -37,7 +37,7 @@ let
               default = false;
             };
 
-            authorizedKeys = mkOption {
+            authorized-keys = mkOption {
               type = types.listOf types.str;
               description = ''
                 SSH public keys authorized to push to the

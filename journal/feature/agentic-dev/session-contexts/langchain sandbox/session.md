@@ -1912,3 +1912,5 @@ One caveat repeated from before: if the whole `setup.nix` module isn't actually 
 > Commit 5ab5274 chore: debug VM setup by disabling serial console and 9p mount options  
 > Applied edit to llm-agent/setup.nix  
 > Commit 60dcd7e feat: mount 9p key share as systemd unit and make agent depend on it  
+
+#### /exit  
