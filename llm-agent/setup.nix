@@ -164,7 +164,7 @@ let
   itself: the push should return quickly and the agent should
   run under its own (systemd) privileges.
   */
-  post-receive-hook = pkgs.writeText "post-receive" ''
+  post-receive-hook = pkgs.writeScript "post-receive" ''
     #!${pkgs.bash}/bin/bash
     set -e
 
@@ -325,7 +325,7 @@ let
             };
             script = ''
               if [ ! -d "${repo-path}" ]; then
-                git init --bare "${repo-path}"
+                ${pkgs.git}/bin/git init --bare "${repo-path}"
               fi
               mkdir -p "${inbox-path}"
               ln -sfn ${post-receive-hook} "${repo-path}/hooks/post-receive"
