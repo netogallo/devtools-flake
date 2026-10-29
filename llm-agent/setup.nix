@@ -163,6 +163,12 @@ let
   unit turns into an agent run. The hook does not run the agent
   itself: the push should return quickly and the agent should
   run under its own (systemd) privileges.
+
+  Every action is logged to journald under the identifier
+  'agent-post-receive' (filterable with 'journalctl -t
+  agent-post-receive' inside the VM) and mirrored to stderr,
+  which git forwards to the pushing client as 'remote: ...'
+  lines.
   */
   post-receive-hook = pkgs.writeScript "post-receive" ''
     #!${pkgs.bash}/bin/bash
@@ -171,17 +177,46 @@ let
     inbox="${inbox-path}"
     mkdir -p "$inbox"
 
+    # All zeros: the ref update deletes a branch.
+    zero=0000000000000000000000000000000000000000
+
+    # Log an action to journald, tagged so it can be filtered with
+    #   journalctl -t agent-post-receive
+    # inside the VM. Also write to stderr: git forwards hook stderr
+    # to the pushing client as 'remote: ...', which makes debugging
+    # possible from the host side without logging into the VM.
+    log() {
+      echo "$*" | ${pkgs.systemd}/bin/systemd-cat -t agent-post-receive -p info
+      echo "$*" >&2
+    }
+
+    # Log failures before 'set -e' terminates the hook.
+    trap 'echo "post-receive failed at: $BASH_COMMAND" | ${pkgs.systemd}/bin/systemd-cat -t agent-post-receive -p err' ERR
+
+    log "post-receive started"
+
     # One line per ref: <old> <new> <refname>
     while read -r old new refname; do
+      log "ref update: $old -> $new $refname"
       case "$refname" in
         refs/heads/*)
+          if [ "$new" = "$zero" ]; then
+            log "branch deleted, not queueing an agent run: $refname"
+            continue
+          fi
           branch="''${refname#refs/heads/}"
           # Sanitize the branch name into a file name.
           sanitized="$(echo -n "$branch" | tr '/_[:upper:]' '.-[:lower:]')"
           echo "$branch" > "$inbox/$sanitized"
+          log "queued agent run for branch '$branch' (spool file '$inbox/$sanitized')"
+          ;;
+        *)
+          log "ignoring non-branch ref: $refname"
           ;;
       esac
     done
+
+    log "post-receive finished"
   '';
 
   /**
