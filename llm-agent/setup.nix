@@ -329,7 +329,6 @@ let
               fi
               mkdir -p "${inbox-path}"
               ln -sfn ${post-receive-hook} "${repo-path}/hooks/post-receive"
-              chmod +x ${post-receive-hook}
             '';
           };
 
