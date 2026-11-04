@@ -3648,3 +3648,11 @@ in
 > Commit 8b80362 feat: log post-receive hook actions to journald  
 
 #### <blank>  
+
+#### Why is the 'agent-inbox' service using 'PathExistsGlob' rather than 'PathChanged'. Does 'PathExistGlob' monitor for file changes?  
+> litellm.APIError: APIError: OpenrouterException - [Errno 16] Device or resource busy  
+> Retrying in 0.2 seconds...  
+> litellm.APIError: APIError: OpenrouterException - [Errno 16] Device or resource busy  
+> Retrying in 0.5 seconds...  
+> litellm.APIError: APIError: OpenrouterException - [Errno 16] Device or resource busy  
+> Retrying in 1.0 seconds...  

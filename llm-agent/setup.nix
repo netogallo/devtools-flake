@@ -22,16 +22,34 @@ changes of the last commit.
   ...
 }:
 let
+  agent-env = pkgs.tikal.prelude.python.to-definitions-package {
+    pname = "agent-env";
+    vars = {
+      "devtools_flake.agent.env" = {
+        git = "${pkgs.git}/bin/git";
+        repo_path = repo-path;
+      };
+    };
+  };
+
   /**
-  The python environment that runs the agent. The 'langchain'
-  package provides the agent machinery while 'langchain-openai'
-  provides the OpenAI-compatible client used to connect to the
-  llm provider (lite-llm exposes an OpenAI-compatible API).
+  The python to run the agent. This python
+  contains the 'python-agent' package which
+  implements all the functionality concerned
+  with the running of the agent with langchain.
   */
-  agent-python = pkgs.python314.withPackages (ps: [
-    ps.langchain
-    ps.langchain-openai
-  ]);
+  agent-python =
+  let
+    python = pkgs.python314.override {
+      self = python;
+      packageOverrides = pyfinal: pyprev: {
+        agent-env = pyfinal.callPackage agent-env {};
+        devtools-agent = pyfinal.callPackage ./python-agent/python-agent.nix {};
+      };
+    };
+  in
+    python.withPackages (ps: [ ps.python-agent ])
+  ;
 
   /**
   Non-secret agent parameters, baked into the guest configuration.
@@ -80,80 +98,7 @@ let
   of summarizing the last commit) operate on the pushed branch.
   */
   agent-script = pkgs.writeText "agent.py" ''
-    import os
-    import sys
 
-    from langchain_openai import ChatOpenAI
-    from langchain_core.tools import tool
-    from langgraph.prebuilt import create_react_agent
-
-    # --- Working directory: the checked out branch ---
-    work_dir = sys.argv[1]
-    os.chdir(work_dir)
-
-    # --- Configuration (injected by the systemd service) ---
-    base_url = os.environ["OPENAI_BASE_URL"]
-    model = os.environ["OPENAI_MODEL"]
-    user = os.environ["AGENT_USER"]
-
-    # --- API key: read at runtime from the shared config dir ---
-    key_file = os.path.join(os.environ["AGENT_KEYS_DIR"], "users", user + ".key")
-    with open(key_file) as f:
-        api_key = f.read().strip()
-
-    # --- LLM client via the provider's OpenAI-compatible API ---
-    llm = ChatOpenAI(
-        model=model,
-        base_url=base_url,
-        api_key=api_key,
-    )
-
-    # --- Agent tools ---
-    @tool
-    def list_files(directory: str) -> str:
-        """List the files in the given directory."""
-        return "\n".join(sorted(os.listdir(directory)))
-
-    @tool
-    def run_git(command: str) -> str:
-        """Run a read-only git command in the working directory.
-
-        Only inspecting git subcommands (show, diff, log, status)
-        are allowed.
-        """
-        import subprocess
-
-        parts = command.split()
-        allowed = ["show", "diff", "log", "status"]
-        if not parts or parts[0] not in allowed:
-            return f"error: only these git subcommands are allowed: {allowed}"
-        result = subprocess.run(
-            ["git"] + parts,
-            capture_output=True,
-            text=True,
-            cwd=work_dir,
-        )
-        return result.stdout or result.stderr
-
-    tools = [list_files, run_git]
-
-    # --- The deep agent, given the dummy task ---
-    agent = create_react_agent(llm, tools)
-
-    result = agent.invoke({
-        "messages": [
-            ("user",
-             "Summarize the changes that happened in the last commit "
-             "(HEAD) of this repository. Use the git tools to inspect "
-             "the commit and its diff, and list the files in the "
-             "working directory if that helps.")
-        ]
-    })
-
-    for message in result["messages"]:
-        content = getattr(message, "content", None)
-        if content:
-            print(content)
   '';
 
   /**
@@ -174,47 +119,9 @@ let
     #!${pkgs.bash}/bin/bash
     set -e
 
-    inbox="${inbox-path}"
-    mkdir -p "$inbox"
-
-    # All zeros: the ref update deletes a branch.
-    zero=0000000000000000000000000000000000000000
-
-    # Log an action to journald, tagged so it can be filtered with
-    #   journalctl -t agent-post-receive
-    # inside the VM. Also write to stderr: git forwards hook stderr
-    # to the pushing client as 'remote: ...', which makes debugging
-    # possible from the host side without logging into the VM.
-    log() {
-      echo "$*" | ${pkgs.systemd}/bin/systemd-cat -t agent-post-receive -p info
-      echo "$*" >&2
-    }
-
-    # Log failures before 'set -e' terminates the hook.
-    trap 'echo "post-receive failed at: $BASH_COMMAND" | ${pkgs.systemd}/bin/systemd-cat -t agent-post-receive -p err' ERR
-
-    log "post-receive started"
-
-    # One line per ref: <old> <new> <refname>
-    while read -r old new refname; do
-      log "ref update: $old -> $new $refname"
-      case "$refname" in
-        refs/heads/*)
-          if [ "$new" = "$zero" ]; then
-            log "branch deleted, not queueing an agent run: $refname"
-            continue
-          fi
-          branch="''${refname#refs/heads/}"
-          # Sanitize the branch name into a file name.
-          sanitized="$(echo -n "$branch" | tr '/_[:upper:]' '.-[:lower:]')"
-          echo "$branch" > "$inbox/$sanitized"
-          log "queued agent run for branch '$branch' (spool file '$inbox/$sanitized')"
-          ;;
-        *)
-          log "ignoring non-branch ref: $refname"
-          ;;
-      esac
-    done
+    # Todo:
+    # This script should use dbus to emit the signal 'org.devtools_flake.events.git.notify_push' 
+    # The signal will contain the hash of the latest commit as value.
 
     log "post-receive finished"
   '';
@@ -231,30 +138,15 @@ let
 
     inbox="${inbox-path}"
     work_root="${work-root}"
-    mkdir -p "$inbox" "$work_root"
+    mkdir -p "$work_root"
 
-    for spool in "$inbox"/*; do
-      [ -e "$spool" ] || continue
-      branch="$(cat "$spool")"
-      work="$work_root/$branch"
+    # Todo: create the work dir by using the
+    # systemd unit's template parameter
+    work=
 
-      # Check out (or update) the pushed branch.
-      if [ -d "$work/.git" ]; then
-        git -C "$work" fetch origin
-        git -C "$work" checkout "$branch"
-        git -C "$work" reset --hard "origin/$branch"
-      else
-        git clone --branch "$branch" "${repo-path}" "$work"
-      fi
-
-      # Run the agent in the working directory, capturing
-      # its summary next to the checkout.
-      ${agent-python}/bin/python ${agent-script} "$work" \
-        | tee "$work/AGENT_SUMMARY.md"
-
-      # The spool file has been handled.
-      rm "$spool"
-    done
+    # Run the agent in the working directory, capturing
+    # its summary next to the checkout.
+    (cd "$work"; ${agent-python}/bin/python -m devtools_agent.agent.py --unit-id=<systemd template parameter>)\
   '';
 
   /**
@@ -385,7 +277,7 @@ let
           # terminal that launched the VM. The service requires the
           # 9p mount (holding the api key) to be up before it starts.
           systemd.services.agent-run = {
-            description = "LangChain deep agent (push-triggered)";
+            description = "LangChain deep agent template for branch.";
             wantedBy = [ "multi-user.target" ];
             after = [
               "network-online.target"
