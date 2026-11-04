@@ -44,11 +44,11 @@ let
       self = python;
       packageOverrides = pyfinal: pyprev: {
         agent-env = pyfinal.callPackage agent-env {};
-        devtools-agent = pyfinal.callPackage ./python-agent/python-agent.nix {};
+        devtools-agent = pyfinal.callPackage ./devtools_agent/python-agent.nix {};
       };
     };
   in
-    python.withPackages (ps: [ ps.python-agent ])
+    python.withPackages (ps: [ ps.devtools-agent ])
   ;
 
   /**
@@ -73,12 +73,10 @@ let
   git-authorized-keys = llm-agent.git.authorized-keys;
 
   /**
-  Guest-side paths of the git repository, the spool directory
-  watched for pushed branches, and the working directories the
-  agent is spawned in.
+  Guest-side paths of the git repository and the working directories
+  the agent is spawned in.
   */
   repo-path = "/var/lib/agent/repo.git";
-  inbox-path = "/var/lib/agent/inbox";
   work-root = "/var/lib/agent/work";
 
   /**
@@ -89,25 +87,13 @@ let
   git-ssh-port = 2222;
 
   /**
-  The script implementing the agent. All secrets are read
-  at runtime from the environment / the shared key directory,
-  so nothing here is unsuitable for the nix store.
-
-  The working directory is given as the first argument; the
-  agent changes into it so that all tools (and the dummy task
-  of summarizing the last commit) operate on the pushed branch.
-  */
-  agent-script = pkgs.writeText "agent.py" ''
-
-  '';
-
-  /**
   The 'post-receive' hook installed in the bare repository. For
-  every pushed branch it drops a file (named after a sanitized
-  branch name) into the spool directory, which the systemd path
-  unit turns into an agent run. The hook does not run the agent
-  itself: the push should return quickly and the agent should
-  run under its own (systemd) privileges.
+  every pushed branch it emits the dbus signal
+  'org.devtools_flake.events.git.notify_push' (with the hash of the
+  latest commit of the pushed branch as value), which the agent
+  manager service subscribes to. The hook does not run the agent
+  itself: the push should return quickly and the agent should run
+  under its own (systemd) privileges.
 
   Every action is logged to journald under the identifier
   'agent-post-receive' (filterable with 'journalctl -t
@@ -119,34 +105,78 @@ let
     #!${pkgs.bash}/bin/bash
     set -e
 
-    # Todo:
-    # This script should use dbus to emit the signal 'org.devtools_flake.events.git.notify_push' 
-    # The signal will contain the hash of the latest commit as value.
+    # All zeros: the ref update deletes a branch.
+    zero=0000000000000000000000000000000000000000
+
+    # Log an action to journald, tagged so it can be filtered with
+    #   journalctl -t agent-post-receive
+    # inside the VM. Also write to stderr: git forwards hook stderr
+    # to the pushing client as 'remote: ...'.
+    log() {
+      echo "$*" | ${pkgs.systemd}/bin/systemd-cat -t agent-post-receive -p info
+      echo "$*" >&2
+    }
+
+    # Log failures before 'set -e' terminates the hook.
+    trap 'echo "post-receive failed at: $BASH_COMMAND" | ${pkgs.systemd}/bin/systemd-cat -t agent-post-receive -p err' ERR
+
+    log "post-receive started"
+
+    # One line per ref: <old> <new> <refname>
+    while read -r old new refname; do
+      log "ref update: $old -> $new $refname"
+      case "$refname" in
+        refs/heads/*)
+          if [ "$new" = "$zero" ]; then
+            log "branch deleted, not notifying the agent manager: $refname"
+            continue
+          fi
+          # Notify the agent manager of the push. The value of the
+          # signal is the hash of the latest commit of the branch.
+          ${pkgs.dbus}/bin/dbus-send \
+            --system \
+            --type=signal \
+            /org/devtools_flake/events/git \
+            org.devtools_flake.events.git.notify_push \
+            string:"$new"
+          log "notified agent manager of push: $refname at $new"
+          ;;
+        *)
+          log "ignoring non-branch ref: $refname"
+          ;;
+      esac
+    done
 
     log "post-receive finished"
   '';
 
   /**
-  The script run by the 'agent-run' service. For each spool file
-  (i.e. each pushed branch) it checks the branch out into a
-  working directory and spawns the agent there, writing its
-  summary to 'AGENT_SUMMARY.md' in the working directory.
+  The script run by the templated 'agent-run@' service. The
+  instance name (the canonicalized branch name, expanded by systemd
+  from the '%i' specifier in the unit's ExecStart) is passed as
+  the first argument; the script prepares the working directory
+  for the instance and spawns the agent there.
   */
   agent-run-script = pkgs.writeText "agent-run.sh" ''
     #!${pkgs.bash}/bin/bash
     set -e
 
-    inbox="${inbox-path}"
     work_root="${work-root}"
-    mkdir -p "$work_root"
 
-    # Todo: create the work dir by using the
-    # systemd unit's template parameter
-    work=
+    # The systemd unit's template parameter: the canonicalized
+    # name of the branch to run the agent on.
+    unit_id="$1"
 
-    # Run the agent in the working directory, capturing
-    # its summary next to the checkout.
-    (cd "$work"; ${agent-python}/bin/python -m devtools_agent.agent.py --unit-id=<systemd template parameter>)\
+    # Create the work dir for this instance from the template
+    # parameter.
+    work="$work_root/$unit_id"
+    mkdir -p "$work"
+
+    # Run the agent in the working directory. The agent checks
+    # out (or updates) the branch itself and writes its summary
+    # next to the checkout.
+    cd "$work"
+    exec ${agent-python}/bin/python -m devtools_agent.agent --unit-id "$unit_id"
   '';
 
   /**
@@ -239,6 +269,22 @@ let
           };
           users.groups.git = lib.mkIf git-enable { };
 
+          # Allow any user to emit the push notification signal
+          # consumed by the agent manager (the hook runs as the
+          # 'git' user). The policy file is merged into the dbus
+          # configuration by the NixOS dbus module.
+          services.dbus.packages = [
+            (pkgs.writeTextDir "etc/dbus-1/system.d/devtools-flake.conf" ''
+              <!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+                "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+              <busconfig>
+                <policy context="default">
+                  <allow send_interface="org.devtools_flake.events.git"/>
+                </policy>
+              </busconfig>
+            '')
+          ];
+
           # Create the bare repository and install the push hook.
           systemd.services.git-repo-init = {
             description = "Initialize the agent git repository";
@@ -254,31 +300,36 @@ let
               if [ ! -d "${repo-path}" ]; then
                 ${pkgs.git}/bin/git init --bare "${repo-path}"
               fi
-              mkdir -p "${inbox-path}"
               ln -sfn ${post-receive-hook} "${repo-path}/hooks/post-receive"
             '';
           };
 
-          # Pushes drop spool files; watch the spool directory and
-          # trigger the agent run.
-          systemd.paths.agent-inbox = {
-            description = "Watch the agent inbox for pushed branches";
+          # The agent manager. It subscribes to the dbus push signal
+          # emitted by the 'post-receive' hook and starts one
+          # instance of the templated agent unit per branch of the
+          # repository.
+          systemd.services.agent-manager = {
+            description = "Agent manager (push-triggered agent instance starter)";
             wantedBy = [ "multi-user.target" ];
-            pathConfig = {
-              PathExistsGlob = "${inbox-path}/*";
-              Unit = "agent-run.service";
-            };
+            after = [
+              "network-online.target"
+              "dbus.service"
+              "git-repo-init.service"
+            ];
+            wants = [ "network-online.target" ];
+            script = ''
+              exec ${agent-python}/bin/python -m devtools_agent.agent_manager
+            '';
           };
 
-          # The agent service. Non-secret parameters are baked in;
-          # the api key is read from the shared directory at runtime.
-          # The service's output is forwarded to the kernel log so
-          # that it shows up on the serial console, i.e. in the
-          # terminal that launched the VM. The service requires the
-          # 9p mount (holding the api key) to be up before it starts.
-          systemd.services.agent-run = {
-            description = "LangChain deep agent template for branch.";
-            wantedBy = [ "multi-user.target" ];
+          # The templated agent service. Non-secret parameters are
+          # baked in; the api key is read from the shared directory
+          # at runtime. The service requires the 9p mount (holding
+          # the api key) to be up before it starts. One instance is
+          # started per branch by the agent manager, with the
+          # canonicalized branch name as the template parameter.
+          systemd.services."agent-run@" = {
+            description = "LangChain deep agent for branch '%i'";
             after = [
               "network-online.target"
               "run-agent_keys.mount"
@@ -296,13 +347,11 @@ let
               RemainAfterExit = true;
               User = "git";
               Group = "git";
-              #StandardOutput = "kmsg";
-              #StandardError = "kmsg";
+              # The '%i' specifier (the canonicalized branch name,
+              # i.e. the unit's template parameter) is expanded by
+              # systemd here and passed to the script.
+              ExecStart = "${pkgs.bash}/bin/bash ${agent-run-script} %i";
             };
-            script = ''
-              exec ${pkgs.bash}/bin/bash ${agent-run-script}
-            '';
-            #unitConfig.OnFailure = [ "poweroff.target" ];
           };
         };
       }

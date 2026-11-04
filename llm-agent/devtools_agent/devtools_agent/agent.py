@@ -1,19 +1,12 @@
 """
-Todo:
-UPdate this file as it should do the following:
-1. This main function can assume that the cwd has been correctly set before launch.
-2. It accepts a "--unit-id" parameter which is the systemd template parameter.
-3. Check if the git repository exits, if not, create one by cloning 'devtools_flake.agent.env.repo_path'.
-4. Determine the branch, this is done by:
-    i. List all the branches in the repository
-    ii. Compute the canonicalized name of each branch (as done by agent_manager.py).
-    iii. Select the branch whose canonicalized name matched the "--unit-id" parameter.
-    iiii. Fail if there is no match.
-5. Checkout the branch. Use the git executable defined by 'devtools_flake.agent.env.git'.
-6. Run the agent task as before.
+The agent program. It is run inside the agent VM by a templated
+systemd unit ('agent-run@<canonical branch name>.service'), in a
+working directory prepared by the unit's script.
 """
 
+import argparse
 import os
+import subprocess
 import sys
 
 from langchain_openai import ChatOpenAI
@@ -22,7 +15,52 @@ from langgraph.prebuilt import create_react_agent
 
 from devtools_flake.agent import env
 
+from devtools_agent.agent_manager import (
+    canonicalize_branch_name,
+    list_branches,
+)
+
+
 def main():
+    # --- The systemd template's instance parameter ---
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--unit-id",
+        required=True,
+        help="The systemd template parameter: the canonicalized name of the branch to run the agent on.",
+    )
+    args = parser.parse_args()
+
+    # The working directory has been set by the unit's script
+    # before launching the agent.
+    work_dir = os.getcwd()
+
+    # --- Check the repository exists, cloning it if not ---
+    if not os.path.isdir(".git"):
+        subprocess.run(
+            [env.git, "clone", env.repo_path, "."],
+            check=True,
+            cwd=work_dir,
+        )
+
+    # --- Determine the branch for this unit id ---
+    # List all the branches of the repository, canonicalize each
+    # name (as done by agent_manager.py) and select the branch
+    # whose canonicalized name matches the unit id.
+    branches = list_branches()
+    branch = next(
+        (b for b in branches if canonicalize_branch_name(b) == args.unit_id),
+        None,
+    )
+    if branch is None:
+        sys.exit(
+            f"error: no branch canonicalizes to the unit id '{args.unit_id}' "
+            f"(branches: {branches})"
+        )
+
+    # --- Checkout the branch ---
+    subprocess.run([env.git, "checkout", branch], check=True, cwd=work_dir)
+
     # --- Configuration (injected by the systemd service) ---
     base_url = os.environ["OPENAI_BASE_URL"]
     model = os.environ["OPENAI_MODEL"]
@@ -53,7 +91,6 @@ def main():
         Only inspecting git subcommands (show, diff, log, status)
         are allowed.
         """
-        import subprocess
         parts = command.split()
         allowed = ["show", "diff", "log", "status"]
         if not parts or parts[0] not in allowed:
@@ -65,7 +102,9 @@ def main():
             cwd=work_dir,
         )
         return result.stdout or result.stderr
+
     tools = [list_files, run_git]
+
     # --- The deep agent, given the dummy task ---
     agent = create_react_agent(llm, tools)
     result = agent.invoke({
@@ -77,10 +116,12 @@ def main():
              "working directory if that helps.")
         ]
     })
+
     for message in result["messages"]:
         content = getattr(message, "content", None)
         if content:
             print(content)
 
-if __name__ == "main":
+
+if __name__ == "__main__":
     main()

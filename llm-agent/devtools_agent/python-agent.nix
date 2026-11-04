@@ -3,11 +3,14 @@
   python,
   langchain,
   langchain-openai,
+  langgraph,
+  dbus-python,
+  pygobject3,
   agent-env,
   ...
 }:
 let
-  sources = ./.;
+  sources = ./devtools_agent;
 in
   buildPythonPackage {
     pname = "devtools_agent";
@@ -15,11 +18,18 @@ in
     format = "other";
     dontUnpack = true;
     dontUsePythonRemoveTestsDir = true;
-    propagatedBuildInputs = [ python-box ];
+    propagatedBuildInputs = [
+      agent-env
+      langchain
+      langchain-openai
+      langgraph
+      dbus-python
+      pygobject3
+    ];
     installPhase = ''
       runHook preInstall
       mkdir -p $out/${python.sitePackages}
-      cp -rL ${sources}/. $out/${python.sitePackages}/
+      cp -rL ${sources} $out/${python.sitePackages}/devtools_agent
       runHook postInstall
     '';
-  };
+  }
