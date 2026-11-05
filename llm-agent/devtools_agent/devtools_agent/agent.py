@@ -15,7 +15,7 @@ from langgraph.prebuilt import create_react_agent
 
 from devtools_flake.agent import env
 
-from devtools_agent.agent_manager import (
+from devtools_agent.common import (
     canonicalize_branch_name,
     list_branches,
 )

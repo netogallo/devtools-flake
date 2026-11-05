@@ -4,6 +4,7 @@ service and keeps one 'agent-run@<canonical branch name>.service'
 instance per branch of the agent git repository.
 """
 
+import logging
 import subprocess
 import sys
 
@@ -13,36 +14,12 @@ from gi.repository import GLib
 
 from devtools_flake.agent import env
 
-# The signal emitted by the 'post-receive' hook of the agent git
-# repository on every push. The value of the signal is the hash of
-# the latest commit of the pushed branch.
-SIGNAL_INTERFACE = "org.devtools_flake.events.git"
-SIGNAL_NAME = "notify_push"
+from devtools_agent.common import (
+    canonicalize_branch_name,
+    list_branches,
+)
 
-
-def canonicalize_branch_name(branch):
-    """
-    Canonicalize a branch name into a name that is acceptable as the
-    instance name of a systemd templated unit: slashes and
-    underscores are replaced and the name is lowercased.
-    """
-    return branch.replace("/", ".").replace("_", "-").lower()
-
-
-def list_branches():
-    """
-    List all the branches of the agent git repository, as defined by
-    'devtools_flake.agent.env.repo_path'.
-    """
-    result = subprocess.run(
-        [env.git, "for-each-ref", "--format=%(refname:short)", "refs/heads/"],
-        capture_output=True,
-        text=True,
-        cwd=env.repo_path,
-    )
-    if result.returncode != 0:
-        sys.exit(f"error listing branches of '{env.repo_path}': {result.stderr}")
-    return [line for line in result.stdout.splitlines() if line]
+log = logging.getLogger(__name__)
 
 
 def unit_name(canonical):
@@ -62,10 +39,22 @@ def unit_active(canonical):
 
 
 def start_unit(canonical):
-    subprocess.run(
-        ["systemctl", "start", unit_name(canonical)],
-        check=True,
-    )
+    """
+    Start the agent instance for the canonicalized branch name.
+    Failure to start an instance is logged; it does not crash the
+    manager, which keeps processing the remaining branches.
+    """
+    try:
+        subprocess.run(
+            ["systemctl", "start", unit_name(canonical)],
+            check=True,
+        )
+    except subprocess.CalledProcessError as error:
+        log.error(
+            "failed to start agent instance for canonical branch name '%s': %s",
+            canonical,
+            error,
+        )
 
 
 def reconcile():
@@ -76,9 +65,9 @@ def reconcile():
     for branch in list_branches():
         canonical = canonicalize_branch_name(branch)
         if unit_active(canonical):
-            print(f"instance already running for branch '{branch}', ignoring")
+            log.info("instance already running for branch '%s', ignoring", branch)
             continue
-        print(f"starting agent instance for branch '{branch}'")
+        log.info("starting agent instance for branch '%s'", branch)
         start_unit(canonical)
 
 
@@ -88,17 +77,24 @@ def on_notify_push(*args):
     latest commit of the pushed branch. Reconcile the agent instances
     with the branches of the repository.
     """
-    print(f"received push notification: {args}")
+    log.info("received push notification: %s", args)
     reconcile()
 
 
 def main():
+    # For the time being the manager logs to standard output.
+    logging.basicConfig(
+        level=logging.INFO,
+        stream=sys.stdout,
+        format="%(levelname)s %(name)s: %(message)s",
+    )
+
     DBusGMainLoop(set_as_default=True)
     bus = dbus.SystemBus()
     bus.add_signal_receiver(
         on_notify_push,
-        dbus_interface=SIGNAL_INTERFACE,
-        signal_name=SIGNAL_NAME,
+        dbus_interface=env.push_signal.interface,
+        signal_name=env.push_signal.name,
     )
     # Reconcile once at startup so that a reboot of the VM (or a
     # restart of the manager) restarts the agents for all branches.

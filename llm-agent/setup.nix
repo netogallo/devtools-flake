@@ -22,12 +22,29 @@ changes of the last commit.
   ...
 }:
 let
+  /**
+  The dbus signal emitted by the 'post-receive' hook of the agent
+  git repository on every push. The value of the signal is the hash
+  of the latest commit of the pushed branch.
+
+  The definition is cascaded into the agent python programs through
+  the 'devtools_flake.agent.env' module (exposed as
+  'env.push_signal'), which the agent manager uses to subscribe to
+  the signal; the hook and the dbus policy below use the same
+  values.
+  */
+  push-signal = {
+    interface = "org.devtools_flake.events.git";
+    name = "notify_push";
+  };
+
   agent-env = pkgs.tikal.prelude.python.to-definitions-package {
-    pname = "agent-env";
+    pname = "devtools_agent_env";
     vars = {
       "devtools_flake.agent.env" = {
         git = "${pkgs.git}/bin/git";
         repo_path = repo-path;
+        push_signal = push-signal;
       };
     };
   };
@@ -137,7 +154,7 @@ let
             --system \
             --type=signal \
             /org/devtools_flake/events/git \
-            org.devtools_flake.events.git.notify_push \
+            ${push-signal.interface}.${push-signal.name} \
             string:"$new"
           log "notified agent manager of push: $refname at $new"
           ;;
@@ -279,7 +296,7 @@ let
                 "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
               <busconfig>
                 <policy context="default">
-                  <allow send_interface="org.devtools_flake.events.git"/>
+                  <allow send_interface="${push-signal.interface}"/>
                 </policy>
               </busconfig>
             '')
