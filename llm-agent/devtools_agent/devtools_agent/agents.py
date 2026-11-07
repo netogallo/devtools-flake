@@ -41,6 +41,25 @@ TASK_PROMPT = (
 )
 
 
+def key_file_path():
+    """
+    The location of the provider authentication key: the shared
+    key directory and the user are injected via the environment by
+    the agent's systemd unit.
+    """
+    user = os.environ["AGENT_USER"]
+    return os.path.join(os.environ["AGENT_KEYS_DIR"], "users", user + ".key")
+
+
+def read_api_key():
+    """
+    Read the provider authentication key from the shared key
+    directory.
+    """
+    with open(key_file_path()) as f:
+        return f.read().strip()
+
+
 class MainAgent:
     """
     The main agent implementation: a langchain react agent
@@ -52,12 +71,9 @@ class MainAgent:
         # --- Configuration (injected by the systemd service) ---
         base_url = os.environ["OPENAI_BASE_URL"]
         model = os.environ["OPENAI_MODEL"]
-        user = os.environ["AGENT_USER"]
 
         # --- API key: read at runtime from the shared config dir ---
-        key_file = os.path.join(os.environ["AGENT_KEYS_DIR"], "users", user + ".key")
-        with open(key_file) as f:
-            api_key = f.read().strip()
+        api_key = read_api_key()
 
         # --- LLM client via the provider's OpenAI-compatible API ---
         llm = ChatOpenAI(
@@ -87,6 +103,15 @@ class TestAgent:
     """
 
     def __init__(self, tools):
+        # Check that the mock key is present and is in the same
+        # location that the 'MainAgent' is expecting (the mock key
+        # is mounted into the test machine; its content is
+        # irrelevant, what is being tested is that it can be
+        # found by the tools that use it).
+        try:
+            self.api_key = read_api_key()
+        except (KeyError, OSError) as error:
+            sys.exit(f"test agent: the mock key could not be read: {error}")
         self.tools = tools
         self.responses = {
             TASK_PROMPT: "mock response: summary of the last commit of the repository.",

@@ -90,6 +90,18 @@ let
   git-authorized-keys = llm-agent.git.authorized-keys;
 
   /**
+  The mock key directory shared with the test machine in place of
+  the host's private configuration directory. The content of the
+  key is irrelevant; what is being tested is that the key is in
+  the correct directory and can be found by the tools that use
+  it.
+  */
+  mock-keys = pkgs.runCommand "mock-agent-keys" {} ''
+    mkdir -p $out/users
+    echo mock-api-key > $out/users/${provider-user}.key
+  '';
+
+  /**
   Guest-side paths of the git repository and the working directories
   the agent is spawned in.
   */
@@ -204,8 +216,10 @@ let
   In 'test-mode' the machine runs the 'test' implementation of
   the agent (see 'devtools_agent/agents.py'), which provides mock
   responses to specific test prompts: no llm provider is
-  contacted. Therefore the 9p share of the provider keys (and
-  its mount unit) is omitted, and the agent unit selects the test
+  contacted. The same 9p share of the key directory is performed
+  as in the main machine, but the host-side source is the mock
+  key directory (a nix derivation) instead of the host's private
+  configuration directory, and the agent unit selects the test
   implementation through the 'DEVTOOLS_LLM_AGENT_MODE'
   environment variable.
   */
@@ -226,12 +240,32 @@ let
           virtualisation.graphics = false;
           boot.kernelParams = [ "console=ttyS0" ];
 
-          # Share the host's private configuration directory with
-          # the guest through 9p. The mount is read-only; the agent
-          # only needs to read its authentication key.
-          virtualisation.qemu.options = lib.optionals (!test-mode) [
-            ''-virtfs local,path="$DEVTOOLS_CONFIG",mount_tag=devtools-config,security_model=none,readonly=on''
-          ];
+          # The key directory shared with the guest over 9p and
+          # mounted at '/run/agent_keys' (the generated
+          # 'run-agent_keys.mount' unit is what the agent services
+          # order themselves after). Both the main and the test
+          # machine share and mount the same 9p directory with the
+          # same configuration; only the host-side source differs:
+          #
+          # - the main machine shares the host's private
+          #   configuration directory, whose path is given at
+          #   runtime through the 'DEVTOOLS_CONFIG' environment
+          #   variable set by the launch script (a share source
+          #   may be a shell variable, expanded when the VM is
+          #   launched);
+          #
+          # - the test driver passes its environment through to
+          #   the script that launches the VM, but the test
+          #   framework offers no way to declare environment
+          #   variables for the driver process, so the test
+          #   machine cannot rely on the variable. Instead the
+          #   mock key directory, a nix derivation, is declared as
+          #   the share source directly.
+          virtualisation.sharedDirectories."devtools-config" = {
+            source = if test-mode then "${mock-keys}" else ''"$DEVTOOLS_CONFIG"'';
+            target = "/run/agent_keys";
+            securityModel = "none";
+          };
           boot.initrd.availableKernelModules = [ "9p" "9pnet_virtio" ];
           boot.kernelModules = [ "9p" "9pnet_virtio" ];
 
@@ -246,21 +280,21 @@ let
             MaxLevelConsole=info
           '';
 
-          # The 9p mount of the shared key directory, defined as an
-          # explicit systemd mount unit (rather than a fileSystems
-          # entry) so it is generated directly as a unit and can be
-          # depended upon by the agent service. In test mode the
-          # share (and its mount) is omitted: the test
-          # implementation of the agent reads no keys.
-          systemd.mounts = lib.optionals (!test-mode) [
-            {
-              what = "devtools-config";
-              where = "/run/agent_keys";
-              type = "9p";
-              options = "trans=virtio,version=9p2000.L,ro";
-              wantedBy = [ "multi-user.target" ];
-            }
-          ];
+          # The generated entry would mount the share in the initrd
+          # (neededForBoot); instead the mount is performed by the
+          # system manager like any other local file system: the
+          # key share is optional, and a failure to mount it must
+          # not prevent booting. The agent services order
+          # themselves after the generated 'run-agent_keys.mount'
+          # unit. The overrides must be set on
+          # 'virtualisation.fileSystems': qemu-vm.nix copies that
+          # option into 'fileSystems' with 'mkVMOverride', which
+          # would beat overrides set directly on 'fileSystems'.
+          virtualisation.fileSystems."/run/agent_keys".neededForBoot = lib.mkForce false;
+
+          # The share is mounted read-only: the agent only needs
+          # to read its authentication key.
+          virtualisation.fileSystems."/run/agent_keys".options = [ "ro" ];
 
           environment.systemPackages = [ pkgs.git ];
 
@@ -457,6 +491,10 @@ let
       machine.wait_until_succeeds(
           "journalctl -u agent-manager.service | grep -q 'subscribed to'"
       )
+
+      with subtest("the mock key is mounted in the expected location"):
+          machine.wait_for_unit("run-agent_keys.mount")
+          machine.succeed("test -f /run/agent_keys/users/${provider-user}.key")
 
       with subtest("push a change to the agent repository"):
           machine.succeed("git init -q /tmp/src")
