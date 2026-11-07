@@ -96,6 +96,11 @@ def main():
         dbus_interface=env.push_signal.interface,
         signal_name=env.push_signal.name,
     )
+    log.info(
+        "agent manager started; subscribed to push signal %s.%s",
+        env.push_signal.interface,
+        env.push_signal.name,
+    )
     # Reconcile once at startup so that a reboot of the VM (or a
     # restart of the manager) restarts the agents for all branches.
     reconcile()

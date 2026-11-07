@@ -197,24 +197,25 @@ let
   '';
 
   /**
-  The NixOS configuration of the guest VM. The agent runs as a
-  systemd service; the host's private configuration directory
-  (holding the provider authentication keys) is shared read-only
-  through a 9p mount so that secrets never enter the nix store
-  or the QEMU command line.
+  The NixOS configuration modules of the agent machine, shared by
+  the QEMU VM booted by the launch script and by the integration
+  test defined below.
 
-  When the git pipeline is enabled, the VM additionally hosts
-  the git repository (reachable over ssh) and the push-triggered
-  agent service.
+  In 'test-mode' the machine runs the 'test' implementation of
+  the agent (see 'devtools_agent/agents.py'), which provides mock
+  responses to specific test prompts: no llm provider is
+  contacted. Therefore the 9p share of the provider keys (and
+  its mount unit) is omitted, and the agent unit selects the test
+  implementation through the 'DEVTOOLS_LLM_AGENT_MODE'
+  environment variable.
   */
-  vm = nixpkgs.lib.nixosSystem {
-    modules = [
+  guest-modules = { test-mode ? false }:
+    [
       {
         imports = [
           "${nixpkgs}/nixos/modules/virtualisation/qemu-vm.nix"
         ];
         config = {
-          nixpkgs.hostPlatform = pkgs.system;
           virtualisation.memorySize = 2048;
           virtualisation.cores = 2;
 
@@ -228,7 +229,7 @@ let
           # Share the host's private configuration directory with
           # the guest through 9p. The mount is read-only; the agent
           # only needs to read its authentication key.
-          virtualisation.qemu.options = [
+          virtualisation.qemu.options = lib.optionals (!test-mode) [
             ''-virtfs local,path="$DEVTOOLS_CONFIG",mount_tag=devtools-config,security_model=none,readonly=on''
           ];
           boot.initrd.availableKernelModules = [ "9p" "9pnet_virtio" ];
@@ -248,8 +249,10 @@ let
           # The 9p mount of the shared key directory, defined as an
           # explicit systemd mount unit (rather than a fileSystems
           # entry) so it is generated directly as a unit and can be
-          # depended upon by the agent service.
-          systemd.mounts = [
+          # depended upon by the agent service. In test mode the
+          # share (and its mount) is omitted: the test
+          # implementation of the agent reads no keys.
+          systemd.mounts = lib.optionals (!test-mode) [
             {
               what = "devtools-config";
               where = "/run/agent_keys";
@@ -260,6 +263,23 @@ let
           ];
 
           environment.systemPackages = [ pkgs.git ];
+
+          # The agent git repository is owned by the 'git' user but
+          # is also accessed by other principals (the manager
+          # service runs as root, and pushes performed inside the
+          # machine are not done as the repository owner). Declare
+          # the repository a safe directory in the system-wide git
+          # configuration so git does not reject the access with
+          # 'detected dubious ownership'; the exceptions in
+          # 'devtools_agent/common.py' cover the direct
+          # invocations, this covers the client and receive-pack
+          # processes of a push.
+          environment.etc."gitconfig" = lib.mkIf git-enable {
+            text = ''
+              [safe]
+                  directory = ${repo-path}
+            '';
+          };
 
           # The git repository and the push-triggered agent.
           services.openssh = {
@@ -372,7 +392,88 @@ let
           };
         };
       }
-    ];
+    ]
+    ++ lib.optionals (!test-mode) [
+      {
+        # The platform of the guest; the test framework provides
+        # the nixpkgs of the nodes itself (read-only), so this is
+        # only set for the VM booted by the launch script.
+        nixpkgs.hostPlatform = pkgs.system;
+      }
+    ]
+    ++ lib.optionals test-mode [
+      {
+        # Test mode: select the 'test' implementation of the
+        # agent, which provides mock responses to specific test
+        # prompts. The journal is not forwarded to the console
+        # (the test inspects it with journalctl instead), keeping
+        # the serial console of the test driver clean.
+        services.journald.extraConfig = lib.mkForce "";
+        systemd.services."agent-run@" = {
+          environment = {
+            DEVTOOLS_LLM_AGENT_MODE = "test";
+          };
+        };
+      }
+    ]
+  ;
+
+  /**
+  The NixOS configuration of the guest VM. The agent runs as a
+  systemd service; the host's private configuration directory
+  (holding the provider authentication keys) is shared read-only
+  through a 9p mount so that secrets never enter the nix store
+  or the QEMU command line.
+
+  When the git pipeline is enabled, the VM additionally hosts
+  the git repository (reachable over ssh) and the push-triggered
+  agent service.
+  */
+  vm = nixpkgs.lib.nixosSystem {
+    modules = guest-modules {};
+  };
+
+  /**
+  The integration test of the agent machine, exposed as a flake
+  check. It uses the integration testing NixOS virtual machines
+  available in nixpkgs to spawn the agent machine in test mode
+  (the agent provides mock responses; no llm provider is
+  contacted), pushes a change to the git repository and checks
+  that the push correctly triggers the start of the agent for
+  the corresponding git branch.
+  */
+  agent-vm-test = pkgs.testers.runNixOSTest {
+    name = "llm-agent-${llm-agent-name}";
+
+    nodes.machine = {
+      imports = guest-modules { test-mode = true; };
+    };
+
+    testScript = ''
+      start_all()
+
+      machine.wait_for_unit("git-repo-init.service")
+      machine.wait_for_unit("agent-manager.service")
+      machine.wait_until_succeeds(
+          "journalctl -u agent-manager.service | grep -q 'subscribed to'"
+      )
+
+      with subtest("push a change to the agent repository"):
+          machine.succeed("git init -q /tmp/src")
+          machine.succeed("git -C /tmp/src config user.name tester")
+          machine.succeed("git -C /tmp/src config user.email tester@example.com")
+          machine.succeed("echo change > /tmp/src/change.txt")
+          machine.succeed("git -C /tmp/src add change.txt")
+          machine.succeed("git -C /tmp/src commit -m change")
+          machine.succeed("git -C /tmp/src push ${repo-path} HEAD:refs/heads/main")
+
+      with subtest("the push triggers the agent for the pushed branch"):
+          machine.wait_for_unit("agent-run@main.service")
+          machine.succeed("test -f ${work-root}/main/change.txt")
+          machine.wait_until_succeeds(
+              "journalctl -u agent-run@main.service | grep -q 'mock response'"
+          )
+    '';
   };
 
   /**
@@ -435,5 +536,11 @@ in
   config.apps."devtools/${llm-agent-name}" = {
     type = "app";
     program = "${launch-llm-agent}";
+  };
+
+  # The integration test of the push-triggered agent pipeline,
+  # only defined when the git pipeline is enabled.
+  config.checks = lib.mkIf git-enable {
+    "tests/devtools/${llm-agent-name}" = agent-vm-test;
   };
 }
