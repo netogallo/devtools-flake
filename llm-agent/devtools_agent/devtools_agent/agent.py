@@ -58,6 +58,13 @@ def main():
         )
 
     # --- Checkout the branch ---
+    # Todo: Does this checkout the latest changes as well? The latest
+    # changes in the 'env.reop_path' repository should be reflected in
+    # this directory. There are two cases:
+    # 1) Changes are applied on top of existing changes, ordinary fast-forward
+    #    should suffice.
+    # 2) Git history has divergeed. In this case, the history of 'env.repo_path'
+    #    overwrites the history in this directory.
     subprocess.run([env.git, "checkout", branch], check=True, cwd=work_dir)
 
     # --- Agent tools ---
