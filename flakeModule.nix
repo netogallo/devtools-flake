@@ -4,6 +4,7 @@ let
     ./presets/flakeModule.nix
     ./neovim/default.nix
     ./llm-netogallo/config.nix
+    ./opencode/config.nix
   ];
 in
 {

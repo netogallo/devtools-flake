@@ -9,7 +9,7 @@
   outputs = inputs@{ flake-parts, nixpkgs, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } ({ flake-parts-lib, ... }: {
       imports = [
-        ./flakeModule.nix
+        #./flakeModule.nix
         # To import an internal flake module: ./other.nix
         # To import an external flake module:
         #   1. Add foo to inputs
