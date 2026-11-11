@@ -72,30 +72,23 @@ let
 
   perSystem = { pkgs, ... }:
   let
-    # One per-system module per configured container. Each module
-    # imports ./setup.nix in its own module scope, passing the
-    # instance's name and configuration as module arguments. The
-    # per-instance module scope keeps those arguments from clashing
-    # between instances.
+    # One configuration per-module. For each container defined in the
+    # configuration, a new module is created by fixing the corresponding
+    # configuration context.
     to-opencode-container = name: container:
-    let
-      instance = lib.evalModules {
-        modules = [ ./setup.nix ];
-        specialArgs = {
-          inherit pkgs;
-          inherit (inputs) nixpkgs;
-          opencode-container-name = name;
-          opencode-container = container;
-        };
-      };
-    in
-      lib.removeAttrs instance.config [ "_module" ];
+      {
+        imports = [
+          (import ./setup.nix { opencode-container-name = name; opencode-container = container; })
+        ];
+      }
+    ;
     imports = lib.attrValues (
       lib.mapAttrs to-opencode-container flake-config.development-tools.opencode-container
     );
   in
   {
     inherit imports;
+    config._module.args = { inherit (inputs) nixpkgs; };
   };
 in
   {

@@ -29,6 +29,12 @@ in
       enable = true;
     };
 
+    # An opencode dev container using the default configuration:
+    # opencode and git installed, attached to vlan 42.
+    config.development-tools.opencode-container.opencode-2 = {
+      enable = true;
+    };
+
     config.development-tools.neovim.neovim-example1 = {
       enable = true;
       plugins.telescope = {

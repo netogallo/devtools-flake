@@ -23,11 +23,13 @@ docopt):
                     'setup activate'.
 */
 {
+  opencode-container,
+  opencode-container-name
+}:
+{
   lib,
   pkgs,
   nixpkgs,
-  opencode-container,
-  opencode-container-name,
   ...
 }:
 let
@@ -57,9 +59,7 @@ let
   # 'setup activate' mode.
   dns-servers = [
     "1.1.1.1"
-    "2606:4700:4700::1111"
     "9.9.9.9"
-    "2620:fe::fe"
   ];
 
   nixos = nixpkgs.lib.nixosSystem {
@@ -149,16 +149,10 @@ let
                   {
                     Address = "192.168.${toString iface.vlan}.${toString node-number}/24";
                   }
-                  {
-                    Address = "2001:db8:${toString iface.vlan}::${toString node-number}/64";
-                  }
                 ];
                 routes = [
                   {
                     Gateway = "192.168.${toString iface.vlan}.254";
-                  }
-                  {
-                    Gateway = "2001:db8:${toString iface.vlan}::fe";
                   }
                 ];
               })
@@ -261,10 +255,6 @@ let
         # Masquerade the container's traffic so that replies find
         # their way back through the host.
         ensure-rule iptables -t nat POSTROUTING -s ${ipv4-subnet} ! -o ${bridge} -j MASQUERADE
-
-        ensure-rule ip6tables FORWARD -i ${bridge} -j ACCEPT
-        ensure-rule ip6tables FORWARD -o ${bridge} -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-        ensure-rule ip6tables -t nat POSTROUTING -s ${ipv6-subnet} ! -o ${bridge} -j MASQUERADE
       fi
 
       if [ "$deactivate" = "true" ]; then
@@ -273,21 +263,16 @@ let
         remove-rule iptables FORWARD -o ${bridge} -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
         remove-rule iptables -t nat POSTROUTING -s ${ipv4-subnet} ! -o ${bridge} -j MASQUERADE
 
-        remove-rule ip6tables FORWARD -i ${bridge} -j ACCEPT
-        remove-rule ip6tables FORWARD -o ${bridge} -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-        remove-rule ip6tables -t nat POSTROUTING -s ${ipv6-subnet} ! -o ${bridge} -j MASQUERADE
-
         echo "Disabling ip forwarding..."
         sysctl -w net.ipv4.ip_forward=0
-        sysctl -w net.ipv6.conf.all.forwarding=0
       fi
     '';
   };
 in
 {
-  options.apps = mkOption {
-    type = types.lazyAttrsOf types.anything;
-  };
+  #options.apps = mkOption {
+  #  type = types.lazyAttrsOf types.anything;
+  #};
 
   config.apps."devtools/${opencode-container-name}" = mkIf opencode-container.enable {
     type = "app";
