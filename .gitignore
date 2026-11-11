@@ -4,3 +4,6 @@ scratch.lua
 nixos-root
 scratch
 *.qcow2
+.#nixos-root.lck
+opencode-root
+.#opencode-root.lck
