@@ -9,3 +9,4 @@ opencode-root
 .#opencode-root.lck
 *.qcow2
 scratch
+__pycache__

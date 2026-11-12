@@ -31,18 +31,15 @@ MODE_ENV_VAR = ENV_PREFIX + "MODE"
 MODE_MAIN = "main"
 MODE_TEST = "test"
 
-# The prompt sent to the agent, requesting a summary of the
-# changes that happened in the repository since the last recorded
-# revision. The revision is recorded by the agent program before
-# updating the working directory (see 'agent.py'): it is either the
-# previous HEAD (when the branch fast-forwarded) or 'HEAD~1' (when the
-# branch diverged from 'env.repo_path'). The test implementation
-# provides a mock response for this prompt (recognized by prefix, as
-# it is parameterized by the revision).
-TASK_PROMPT_PREFIX = (
-    "Summarize the changes that happened in this repository "
-    "since revision "
-)
+# The prompt sent to the agent: look at the changes that happened
+# in the repository since the last recorded revision and complete
+# any missing items. The revision is recorded by the agent program
+# before updating the working directory (see 'agent.py'): it is
+# either the previous HEAD (when the branch fast-forwarded) or
+# 'HEAD~1' (when the branch diverged from 'env.repo_path'). The
+# test implementation provides a mock response for this prompt
+# (recognized by prefix, as it is parameterized by the revision).
+TASK_PROMPT_PREFIX = "Look at the changes since revision "
 
 
 def task_prompt(last_revision):
@@ -50,9 +47,9 @@ def task_prompt(last_revision):
     Build the task prompt for the given last recorded revision.
     """
     return (
-        f"{TASK_PROMPT_PREFIX}{last_revision}. Use the git tools "
-        "to inspect the commits since then and their diffs, and "
-        "list the files in the working directory if that helps."
+        f"{TASK_PROMPT_PREFIX}{last_revision} and complete any "
+        "missing items. Use the file, edit, and shell tools to "
+        "inspect the changes and carry out the work."
     )
 
 
@@ -138,8 +135,9 @@ class TestAgent:
         """
         if prompt.startswith(TASK_PROMPT_PREFIX):
             return [SimpleNamespace(
-                content="mock response: summary of the changes "
-                        "since the last recorded revision.",
+                content="mock response: the changes since the last "
+                        "recorded revision have been inspected and any "
+                        "missing items completed.",
             )]
         sys.exit(f"test agent: no mock response for prompt: {prompt!r}")
 

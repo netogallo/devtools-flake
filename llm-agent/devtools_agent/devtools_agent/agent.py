@@ -6,8 +6,11 @@ working directory prepared by the unit's script.
 
 import argparse
 import os
+import pty
+import select
 import subprocess
 import sys
+import tempfile
 
 from langchain_core.tools import tool
 
@@ -107,32 +110,154 @@ def main():
         last_revision = "HEAD~1"
 
     # --- Agent tools ---
+    # The agent runs in a sandbox and is used to edit code. It is
+    # given tools to view files (with line numbers, paged), to edit
+    # files (whole-file overwrite, a targeted unique replacement,
+    # and a unified-diff patch), and to run arbitrary shell
+    # commands. Because it runs in a sandbox no guardrails are
+    # enforced on the shell commands.
     @tool
     def list_files(directory: str) -> str:
         """List the files in the given directory."""
         return "\n".join(sorted(os.listdir(directory)))
 
     @tool
-    def run_git(command: str) -> str:
-        """Run a read-only git command in the working directory.
+    def view_file(path: str, start_line: int = 1, end_line: int = 0) -> str:
+        """View a file's contents with line numbers.
 
-        Only inspecting git subcommands (show, diff, log, status)
-        are allowed.
+        Lines are 1-indexed. 'start_line' defaults to 1; 'end_line'
+        defaults to 0, meaning 'to the end of the file'. Each line is
+        returned as '<n>: <line>', prefixed by the total number of
+        lines in the file. Use a line range to page through large
+        files instead of loading them whole.
         """
-        parts = command.split()
-        allowed = ["show", "diff", "log", "status"]
-        if not parts or parts[0] not in allowed:
-            return f"error: only these git subcommands are allowed: {allowed}"
-        result = subprocess.run(
-            [env.git] + parts,
-            capture_output=True,
-            text=True,
+        with open(path) as f:
+            lines = f.read().splitlines()
+        total = len(lines)
+        start = max(1, start_line)
+        end = total if end_line <= 0 else min(end_line, total)
+        if start > end:
+            return f"({total} lines total) (empty range)"
+        body = "\n".join(
+            f"{i}: {line}"
+            for i, line in zip(range(start, end + 1), lines[start - 1:end])
+        )
+        return f"({total} lines total)\n{body}"
+
+    @tool
+    def write_file(path: str, content: str) -> str:
+        """Write the entire contents of a file, creating or replacing it.
+
+        Use this to create new files or to rewrite a file in full.
+        For targeted edits prefer 'str_replace' or 'apply_patch',
+        which are cheaper and less error-prone.
+        """
+        with open(path, "w") as f:
+            f.write(content)
+        return f"wrote {len(content)} characters to {path}"
+
+    @tool
+    def str_replace(path: str, old_str: str, new_str: str) -> str:
+        """Replace a unique snippet of text in a file.
+
+        'old_str' must occur exactly once in the file; an error is
+        returned if it is not found or if it occurs more than once
+        (include more surrounding context to make it unique). The
+        surrounding content is preserved verbatim.
+        """
+        with open(path) as f:
+            content = f.read()
+        occurrences = content.count(old_str)
+        if occurrences == 0:
+            return f"error: old_str not found in {path}"
+        if occurrences > 1:
+            return (
+                f"error: old_str occurs {occurrences} times in {path}; "
+                "add more surrounding context to make it unique"
+            )
+        with open(path, "w") as f:
+            f.write(content.replace(old_str, new_str))
+        return f"replaced 1 occurrence in {path}"
+
+    @tool
+    def apply_patch(patch: str) -> str:
+        """Apply a unified-diff patch to the working tree.
+
+        The patch must be in unified diff format (as produced by
+        'git diff' or 'diff -u'). It is applied to the working tree,
+        not the git index, using 'git apply'. On failure the error
+        output of 'git apply' is returned.
+        """
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".patch", delete=False
+        ) as f:
+            f.write(patch)
+            patch_path = f.name
+        try:
+            result = subprocess.run(
+                [env.git, "apply", "--whitespace=nowarn", patch_path],
+                capture_output=True,
+                text=True,
+                cwd=work_dir,
+            )
+        finally:
+            os.unlink(patch_path)
+        if result.returncode != 0:
+            return result.stderr or result.stdout or "patch did not apply"
+        return "patch applied"
+
+    @tool
+    def run_shell(command: str) -> str:
+        """Run an arbitrary shell command in the working directory.
+
+        stdout and stderr are merged and returned interleaved in the
+        order they are written, on a whole-line basis — matching what
+        would appear on an interactive terminal. The agent runs in a
+        sandbox, so any command may be run; no guardrails are enforced.
+        If the command exits non-zero, its exit status is appended.
+        """
+        # A pseudo-terminal is used so that the child sees a tty and
+        # line-buffers its output, and so that stdout and stderr are
+        # merged at the point of writing rather than captured into two
+        # separate streams. This reproduces the on-screen ordering of
+        # an interactive shell.
+        master, slave = pty.openpty()
+        proc = subprocess.Popen(
+            command,
+            shell=True,
+            stdout=slave,
+            stderr=slave,
+            stdin=subprocess.DEVNULL,
             cwd=work_dir,
         )
-        return result.stdout or result.stderr
+        os.close(slave)
+        chunks = []
+        while True:
+            # Wait for output, but periodically poll the child so that
+            # a command which produces no output (or which blocks)
+            # does not hang the tool forever once the child has exited.
+            ready, _, _ = select.select([master], [], [], 0.1)
+            if ready:
+                try:
+                    data = os.read(master, 4096)
+                except OSError:
+                    break  # pty EOF: the slave was closed
+                if not data:
+                    break
+                chunks.append(data)
+            elif proc.poll() is not None:
+                break
+        os.close(master)
+        proc.wait()
+        output = b"".join(chunks).decode("utf-8", errors="replace")
+        if proc.returncode != 0:
+            output += f"\n[exit status {proc.returncode}]\n"
+        return output or "(no output)"
 
     # --- The agent: connect and send the task message ---
-    agent = select_agent([list_files, run_git])
+    agent = select_agent(
+        [list_files, view_file, write_file, str_replace, apply_patch, run_shell]
+    )
     messages = agent.invoke(task_prompt(last_revision))
 
     for message in messages:
