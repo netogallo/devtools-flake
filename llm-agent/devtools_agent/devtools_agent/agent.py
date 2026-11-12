@@ -16,6 +16,7 @@ from devtools_flake.agent import env
 from devtools_agent.agents import select_agent, task_prompt
 from devtools_agent.common import (
     canonicalize_branch_name,
+    git,
     list_branches,
 )
 
@@ -36,11 +37,7 @@ def main():
 
     # --- Check the repository exists, cloning it if not ---
     if not os.path.isdir(".git"):
-        subprocess.run(
-            [env.git, "clone", env.repo_path, "."],
-            check=True,
-            cwd=work_dir,
-        )
+        git("clone", env.repo_path, ".", cwd=work_dir)
 
     # --- Determine the branch for this unit id ---
     # List all the branches of the repository, canonicalize each
@@ -63,12 +60,18 @@ def main():
     # since then. There may be no commits yet (for instance on the
     # first run after cloning an empty branch), in which case there is
     # nothing to record.
-    recorded_rev = subprocess.run(
-        [env.git, "rev-parse", "--verify", "--quiet", "HEAD"],
-        capture_output=True,
-        text=True,
-        cwd=work_dir,
-    ).stdout.strip() or None
+    recorded_rev = (
+        git(
+            "rev-parse",
+            "--verify",
+            "--quiet",
+            "HEAD",
+            cwd=work_dir,
+            check=False,
+            capture=True,
+        ).stdout.strip()
+        or None
+    )
 
     # --- Update the working directory to the latest commit ---
     # The latest commit available in 'env.repo_path' is always checked
@@ -81,13 +84,9 @@ def main():
     # 'env.repo_path') and resetting the branch hard to the fetched
     # tip yields the desired result: a fast-forward when possible, an
     # overwrite of any divergent local history otherwise.
-    subprocess.run([env.git, "fetch", "origin"], check=True, cwd=work_dir)
-    subprocess.run([env.git, "checkout", branch], check=True, cwd=work_dir)
-    subprocess.run(
-        [env.git, "reset", "--hard", f"origin/{branch}"],
-        check=True,
-        cwd=work_dir,
-    )
+    git("fetch", "origin", cwd=work_dir)
+    git("checkout", branch, cwd=work_dir)
+    git("reset", "--hard", f"origin/{branch}", cwd=work_dir)
 
     # --- Determine the last revision to summarize from ---
     # If the recorded revision is an ancestor of the new HEAD the
@@ -95,9 +94,13 @@ def main():
     # summarized. Otherwise the branch diverged (or there was no
     # previous revision): default to HEAD~1 so the agent summarizes the
     # latest commit only.
-    if recorded_rev is not None and subprocess.run(
-        [env.git, "merge-base", "--is-ancestor", recorded_rev, "HEAD"],
+    if recorded_rev is not None and git(
+        "merge-base",
+        "--is-ancestor",
+        recorded_rev,
+        "HEAD",
         cwd=work_dir,
+        check=False,
     ).returncode == 0:
         last_revision = recorded_rev
     else:

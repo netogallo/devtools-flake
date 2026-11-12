@@ -20,6 +20,39 @@ def canonicalize_branch_name(branch):
     return branch.replace("/", ".").replace("_", "-").lower()
 
 
+def git(*args, cwd=None, check=True, capture=False):
+    """
+    Run a git command using the binary configured by 'env.git',
+    returning the completed process.
+
+    This is the single place through which the agent programs invoke
+    git, so that the binary path (injected by the NixOS configuration
+    via 'env.git'), the working directory and the error handling are
+    kept consistent across the codebase (see 'list_branches' and the
+    agent program's checkout/update logic).
+
+    When 'check' is true (the default) a non-zero exit status aborts
+    the program with a descriptive message, mirroring the behavior of
+    the previous ad-hoc 'subprocess.run(..., check=True)' calls. When
+    'capture' is true, stdout and stderr are captured as text and
+    returned on the process; otherwise they are inherited from the
+    caller (so, for instance, the agent's own 'run_git' tool can keep
+    streaming its output).
+    """
+    result = subprocess.run(
+        [env.git, *args],
+        cwd=cwd,
+        capture_output=capture,
+        text=capture,
+    )
+    if check and result.returncode != 0:
+        sys.exit(
+            f"error running git {list(args)} in '{cwd or env.repo_path}': "
+            f"{result.stderr}"
+        )
+    return result
+
+
 def list_branches():
     """
     List all the branches of the agent git repository, as defined by
@@ -31,18 +64,17 @@ def list_branches():
     dubious ownership in repository'. The exception is harmless for
     the agent instances, which run as the 'git' user.
     """
-    result = subprocess.run(
-        [
-            env.git,
-            "-c",
-            f"safe.directory={env.repo_path}",
-            "for-each-ref",
-            "--format=%(refname:short)",
-            "refs/heads/",
-        ],
-        capture_output=True,
-        text=True,
+    result = git(
+        "-c",
+        f"safe.directory={env.repo_path}",
+        "for-each-ref",
+        "--format=%(refname:short)",
+        "refs/heads/",
         cwd=env.repo_path,
+        capture=True,
+        # A failure here is reported with the repository-specific
+        # message below rather than the generic one from 'git()'.
+        check=False,
     )
     if result.returncode != 0:
         sys.exit(f"error listing branches of '{env.repo_path}': {result.stderr}")
