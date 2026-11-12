@@ -266,7 +266,7 @@ let
           virtualisation.sharedDirectories."devtools-config" = {
             source = if test-mode then "${mock-keys}" else ''"$DEVTOOLS_CONFIG"'';
             target = "/run/agent_keys";
-            securityModel = "none";
+            #securityModel = "none";
           };
           boot.initrd.availableKernelModules = [ "9p" "9pnet_virtio" ];
           boot.kernelModules = [ "9p" "9pnet_virtio" ];
@@ -277,10 +277,10 @@ let
           users.groups.nixos = { };
           users.users.nixos.isNormalUser = true;
 
-          services.journald.extraConfig = ''
-            ForwardToConsole=yes
-            MaxLevelConsole=info
-          '';
+          #services.journald.extraConfig = ''
+          #  ForwardToConsole=yes
+          #  MaxLevelConsole=info
+          #'';
 
           # The generated entry would mount the share in the initrd
           # (neededForBoot); instead the mount is performed by the
@@ -444,7 +444,7 @@ let
         # prompts. The journal is not forwarded to the console
         # (the test inspects it with journalctl instead), keeping
         # the serial console of the test driver clean.
-        services.journald.extraConfig = lib.mkForce "";
+        # services.journald.extraConfig = lib.mkForce "";
         systemd.services."agent-run@" = {
           environment = {
             DEVTOOLS_LLM_AGENT_MODE = "test";

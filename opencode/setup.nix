@@ -131,6 +131,8 @@ let
           networking.useHostResolvConf = false;
           services.resolved.enable = true;
 
+          nix.settings.experimental-features = [ "flakes" "nix-command" ];
+
           # The addresses are configured statically; do not let
           # dhcpcd touch the interfaces.
           networking.useDHCP = false;

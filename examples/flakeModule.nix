@@ -18,10 +18,10 @@ in
     };
 
 
-    config.development-tools.llm-netogallo.prelude-llm = {
-      enable = true;
-      task-branch-prefix = "feature";
-    };
+    #config.development-tools.llm-netogallo.prelude-llm = {
+    #  enable = true;
+    #  task-branch-prefix = "feature";
+    #};
 
     # An opencode dev container using the default configuration:
     # opencode and git installed, attached to vlan 42.
