@@ -1,4 +1,4 @@
-{ self, lib, flake-parts-lib, ... }:
+{ self, inputs, lib, flake-parts-lib, ... }:
 let
   imports = [
     ./presets/flakeModule.nix
@@ -11,7 +11,14 @@ let
     ./llm-providers/prelude.nix
     ./llm-agent/config.nix
   ];
+  inherit (flake-parts-lib) mkPerSystemOption;
+  perSystem = { pkgs, ... }:
+  {
+    config._module.args = { inherit (inputs) nixpkgs; };
+  }
+  ;
 in
 {
   inherit imports;
+  options.perSystem = mkPerSystemOption perSystem;
 }

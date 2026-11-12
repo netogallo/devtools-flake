@@ -12,12 +12,14 @@ and the agent is spawned there with the task of summarizing the
 changes of the last commit.
 */
 {
+  llm-agent-name,
+  llm-agent
+}:
+{
   config,
   pkgs,
   lib,
   devtools-prelude,
-  llm-agent-name,
-  llm-agent,
   nixpkgs,
   ...
 }:

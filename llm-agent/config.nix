@@ -62,14 +62,15 @@ let
     imports = lib.attrValues (
       lib.mapAttrs to-llm-agent top.config.development-tools.llm-agent
     );
-    to-llm-agent = llm-agent-name: llm-agent: {
-      imports = [ ./setup.nix ];
-      config._module.args = { inherit llm-agent-name llm-agent; };
-    };
+    to-llm-agent = llm-agent-name: llm-agent:
+    let
+      ctx = { inherit llm-agent-name llm-agent; };
+    in
+      (import ./setup.nix ctx)
+    ;
   in
   {
     inherit imports;
-    config._module.args = { inherit (inputs) nixpkgs; };
   };
 in
   {

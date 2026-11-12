@@ -88,7 +88,6 @@ let
   in
   {
     inherit imports;
-    config._module.args = { inherit (inputs) nixpkgs; };
   };
 in
   {
