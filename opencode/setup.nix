@@ -233,15 +233,12 @@ let
       run=false
       setup=false
 
+      # shellcheck disable=SC1091
+      source ${source-config}
+
       # Parse the mode flags; docopts turns the usage text into the
       # 'run', 'setup', 'activate' and 'deactivate' shell variables.
       eval "$(docopts -h "$usage" : "$@")"
-
-      # shellcheck disable=SC1091
-      source ${source-config}
-      #container_base="$DEVTOOLS_CONFIG/container_base"
-      #container_root="$container_base/root"
-      container_root="${container-root-dir}"
 
       if [ "$run" = "true" ]; then
         # The container needs ip forwarding to reach the network
@@ -250,8 +247,6 @@ let
           echo "Warning: ip forwarding is not active on the host." >&2
           echo "Run '$0 setup activate' to configure the host system." >&2
         fi
-        mkdir -p "$container_root"
-        #exec sudo ${lib.getExe nixos.config.system.build.nspawn} --root-dir "$container_root"
         exec sudo ${lib.getExe nixos.config.system.build.nspawn}
       fi
 

@@ -3,10 +3,10 @@ let
   inherit (lib) mkOption types;
   inherit (flake-parts-lib) mkPerSystemOption;
 
-  perSystem = { pkgs, ... }:
+  perSystem = { pkgs, lib, ... }:
   let
     inherit (top.config.development-tools) global-config;
-    get-config = name: pkgs.callPackage ./config-instance.nix { inherit global-config, name };
+    get-config = name: pkgs.callPackage ./config-instance.nix { inherit lib global-config name; };
   in
     {
       config._module.args.devtools-prelude = {

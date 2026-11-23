@@ -3,14 +3,24 @@ This module represents a configuration instance for one specific devtool. This i
 by the tool to query contextual information such as the directory where it's configuration is
 stored.
 */
-{ pkgs, name, global-config, ... }:
+{ pkgs, lib, name, global-config, ... }:
 let
-  inherit (pkgs.tikal.prelude.do) do;
-  global-config;
+  inherit (pkgs.tikal.prelude) do;
   get-config-base = pkgs.writeScript "get-config-base" ''
     #!${pkgs.bash}/bin/bash
     export DEVTOOLS_CONFIG_ROOT="${global-config.config-dir}"
     export DEVTOOLS_CONFIG_GLOBAL="$DEVTOOLS_CONFIG_ROOT/private"
+    export DEVTOOLS_LOG_INFO=1
+
+    log() {
+      level="$1"
+      shift
+      echo "[tool=${name}; level=$level]" "$@"
+    }
+
+    log_info() {
+      log "$DEVTOOLS_LOG_INFO" "$@"
+    }
 
     mkdir -p "$DEVTOOLS_CONFIG_GLOBAL"
     GITIGNORE="$DEVTOOLS_CONFIG_ROOT/.gitignore"
@@ -56,6 +66,9 @@ let
     source "${get-config-base}"
 
     export DEVTOOLS_CONFIG="$DEVTOOLS_CONFIG_GLOBAL/${name}"
+    log_info "DEVTOOLS_CONFIG: $DEVTOOLS_CONFIG"
+    export DEVTOOLS_STABLE_CONFIG="${stable-config-path}"
+    log_info "DEVTOOLS_STABLE_CONFIG: $DEVTOOLS_STABLE_CONFIG"
     mkdir -p "${stable-config-dir}"
     mkdir -p "$DEVTOOLS_CONFIG"
     ln -sfn "$DEVTOOLS_CONFIG" "${stable-config-path}"
