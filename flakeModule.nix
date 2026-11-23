@@ -12,10 +12,19 @@ let
     ./llm-agent/config.nix
   ];
   inherit (flake-parts-lib) mkPerSystemOption;
-  perSystem = { pkgs, ... }:
-  {
-    config._module.args = { inherit (inputs) nixpkgs; };
-  }
+  perSystem = { system, ... }:
+  let
+    inherit (inputs) nixpkgs tikal-prelude;
+  in
+    {
+      config._module.args = {
+        inherit (inputs) nixpkgs;
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [ tikal-prelude.overlays.tikal-prelude ];
+        };
+      };
+    }
   ;
 in
 {

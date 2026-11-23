@@ -32,12 +32,6 @@
           ./examples/flakeModule.nix
         ];
         systems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" "x86_64-darwin" ];
-        perSystem = { system, ... }: {
-          _module.args.pkgs = import nixpkgs {
-            inherit system;
-            overlays = [ tikal-prelude.overlays.tikal-prelude ];
-          };
-        };
         # The usual flake attributes can be defined here, including system-
         # agnostic ones like nixosModule and system-enumerating ones, although
         # those are more easily expressed in perSystem.

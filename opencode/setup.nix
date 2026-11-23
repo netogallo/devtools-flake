@@ -27,13 +27,17 @@ docopt):
   opencode-container-name
 }:
 {
+  config,
   lib,
   pkgs,
   nixpkgs,
+  devtools-prelude,
   ...
 }:
 let
   inherit (lib) mkIf mkOption types;
+  inherit (pkgs.tikal.prelude.template) template;
+  inherit (devtools-prelude.get-config opencode-container-name) source-config stable-config-path;
 
   # The system the container is built for; the application is
   # evaluated per system.
@@ -62,6 +66,18 @@ let
     "9.9.9.9"
   ];
 
+  # This hack will definetely earn me prision time, but I have no choice.
+  # The goal is to have the root filesystem of the container to reside
+  # in the devtools configuration directory under this tool's directory.
+  # The fool might believe this can achived by simply setting the 'virtualisation.rootDir'
+  # of the container to the desired path. Unfortunately, this dosen't work because
+  # nixpkgs is using the 'toCommandLineShellGNU' function to construct the 'systemd-nspawn'
+  # invokation, which results in all parameters passed to the shell using single quotes
+  # (ie. systemd-nspawn --rootDir '<virtualisation.rootDir>'). When this is done, variables
+  # are note expanded so there is no way to reference the desired directory as it relies in
+  # the "$HOME" variable.
+  container-config = stable-config-path;
+  container-root-dir = "${container-config}/root";
   nixos = nixpkgs.lib.nixosSystem {
     modules = [
       ({ config, pkgs, ... }:
@@ -128,6 +144,8 @@ let
             assignIP = false;
           };
 
+          virtualisation.rootDir = container-root-dir;
+
           networking.useHostResolvConf = false;
           services.resolved.enable = true;
 
@@ -165,14 +183,28 @@ let
     ];
   };
 
+  setup-app = lib.getExe setup-opencode-container;
+
+  setup-opencode-container = pkgs.writeShellApplication {
+    name = "setup-${opencode-container-name}";
+    runtimeInputs = with pkgs; [
+      coreutils
+      docopts
+    ];
+    meta.description = "Setup scripts for the '${opencode-container-name}' opencode container.";
+    text = template ./setup.sh {
+      inherit opencode-container-name bridge ipv4-subnet;
+    };
+  };
+
   launch-opencode-container = pkgs.writeShellApplication {
     name = "launch-${opencode-container-name}";
 
     runtimeInputs = with pkgs; [
       coreutils
       docopts
-      iptables
       procps
+      setup-opencode-container
     ];
 
     meta.description = "Manage the '${opencode-container-name}' opencode container.";
@@ -180,59 +212,36 @@ let
     text = ''
       usage="
       Usage: launch-${opencode-container-name} run
-             launch-${opencode-container-name} setup activate
-             launch-${opencode-container-name} setup deactivate
+             launch-${opencode-container-name} setup nat activate
+             launch-${opencode-container-name} setup nat deactivate
              launch-${opencode-container-name} (-h | --help)
 
       Modes:
-        run               Boot the nspawn container.
-        setup activate    Ensure the host is configured to run the
-                          container: ip forwarding is active and the
-                          firewall forwards the container's traffic
-                          between the container's bridge
-                          ('${bridge}') and the system's network
-                          interfaces.
-        setup deactivate  Undo the configuration created by
-                          'setup activate'.
+        run                   Boot the nspawn container.
+        setup nat activate    Ensure the host is configured to run the
+                              container: ip forwarding is active and the
+                              firewall forwards the container's traffic
+                              between the container's bridge
+                              ('${bridge}') and the system's network
+                              interfaces.
+        setup nat deactivate  Undo the configuration created by
+                              'setup activate'.
       "
 
       # The mode flags read below, pre-initialized so that they are
       # always defined; docopts assigns the real values below.
       run=false
-      activate=false
-      deactivate=false
+      setup=false
 
       # Parse the mode flags; docopts turns the usage text into the
       # 'run', 'setup', 'activate' and 'deactivate' shell variables.
       eval "$(docopts -h "$usage" : "$@")"
 
-      # Every mode requires root privileges: booting the container,
-      # enabling ip forwarding and installing firewall rules all
-      # operate on host resources. Re-run the script through the
-      # host's 'sudo' (its setuid wrapper) if it was launched as a
-      # regular user.
-      if [ "$(id -u)" != "0" ]; then
-        exec sudo "$0" "$@"
-      fi
-
-      # Idempotently ensure ('-C' checks the rule, '-I' inserts it at
-      # the top of the chain) or remove ('-D' deletes it) an
-      # iptables/ip6tables rule.
-      ensure-rule() {
-        local tool=$1
-        shift
-        if ! "$tool" -C "$@" > /dev/null 2>&1; then
-          "$tool" -I "$@"
-        fi
-      }
-
-      remove-rule() {
-        local tool=$1
-        shift
-        if "$tool" -C "$@" > /dev/null 2>&1; then
-          "$tool" -D "$@"
-        fi
-      }
+      # shellcheck disable=SC1091
+      source ${source-config}
+      #container_base="$DEVTOOLS_CONFIG/container_base"
+      #container_root="$container_base/root"
+      container_root="${container-root-dir}"
 
       if [ "$run" = "true" ]; then
         # The container needs ip forwarding to reach the network
@@ -241,32 +250,14 @@ let
           echo "Warning: ip forwarding is not active on the host." >&2
           echo "Run '$0 setup activate' to configure the host system." >&2
         fi
-        exec ${lib.getExe nixos.config.system.build.nspawn}
+        mkdir -p "$container_root"
+        #exec sudo ${lib.getExe nixos.config.system.build.nspawn} --root-dir "$container_root"
+        exec sudo ${lib.getExe nixos.config.system.build.nspawn}
       fi
 
-      if [ "$activate" = "true" ]; then
-        echo "Enabling ip forwarding..."
-        sysctl -w net.ipv4.ip_forward=1
-        sysctl -w net.ipv6.conf.all.forwarding=1
-
-        echo "Ensuring firewall rules for the container's bridge '${bridge}'..."
-        # Let the container's traffic leave through the host's
-        # interfaces and let the replies come back in.
-        ensure-rule iptables FORWARD -i ${bridge} -j ACCEPT
-        ensure-rule iptables FORWARD -o ${bridge} -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-        # Masquerade the container's traffic so that replies find
-        # their way back through the host.
-        ensure-rule iptables -t nat POSTROUTING -s ${ipv4-subnet} ! -o ${bridge} -j MASQUERADE
-      fi
-
-      if [ "$deactivate" = "true" ]; then
-        echo "Removing firewall rules for the container's bridge '${bridge}'..."
-        remove-rule iptables FORWARD -i ${bridge} -j ACCEPT
-        remove-rule iptables FORWARD -o ${bridge} -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-        remove-rule iptables -t nat POSTROUTING -s ${ipv4-subnet} ! -o ${bridge} -j MASQUERADE
-
-        echo "Disabling ip forwarding..."
-        sysctl -w net.ipv4.ip_forward=0
+      if [[ "$setup" = "true" ]]; then
+        shift
+        sudo "${setup-app}" "$@"
       fi
     '';
   };

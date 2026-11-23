@@ -6,46 +6,12 @@ let
   perSystem = { pkgs, ... }:
   let
     inherit (top.config.development-tools) global-config;
-    get-config-base = pkgs.writeScript "get-config-base" ''
-      #!${pkgs.bash}/bin/bash
-      export DEVTOOLS_CONFIG_ROOT="${global-config.config-dir}"
-      export DEVTOOLS_CONFIG_GLOBAL="$DEVTOOLS_CONFIG_ROOT/private"
-
-      mkdir -p "$DEVTOOLS_CONFIG_GLOBAL"
-      GITIGNORE="$DEVTOOLS_CONFIG_ROOT/.gitignore"
-
-      if [[ ! -e "$GITIGNORE" ]]; then
-        echo "private" >> "$GITIGNORE"
-      fi
-
-      if [[ -e "$GITIGNORE" && ! -f "$GITIGNORE" ]]; then
-        echo -e "\033[31mWarning: '$GITIGNORE' is not a file. Ensure that '$DEVTOOLS_CONFIG_ROOT/private' is not commited. \033[0m"
-      fi
-    '';
-
-    /**
-    This sets the environmental variables that development tools can
-    use to locate resources, such as the directory that will
-    be used to store user/session specific settings. This
-    script is meant to be sourced by the respective tool
-    before launching. The tool should provide it's name
-    in order to set the variables propertly.
-    */
-    get-config = name:
-      pkgs.writeScript "get-config-for-${name}" ''
-      #!${pkgs.bash}/bin/bash
-
-      source "${get-config-base}"
-
-      export DEVTOOLS_CONFIG="$DEVTOOLS_CONFIG_GLOBAL/${name}"
-
-      mkdir -p "$DEVTOOLS_CONFIG"
-      ''
-    ;
+    get-config = name: pkgs.callPackage ./config-instance.nix { inherit global-config, name };
   in
     {
       config._module.args.devtools-prelude = {
         inherit get-config;
+        inherit global-config;
       };
     }
   ;
