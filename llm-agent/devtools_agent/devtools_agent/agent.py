@@ -5,12 +5,16 @@ working directory prepared by the unit's script.
 """
 
 import argparse
+import functools
+import inspect
+import logging
 import os
 import pty
 import select
 import subprocess
 import sys
 import tempfile
+import time
 
 from langchain_core.tools import tool
 
@@ -19,12 +23,70 @@ from devtools_flake.agent import env
 from devtools_agent.agents import select_agent, task_prompt
 from devtools_agent.common import (
     canonicalize_branch_name,
+    configure_logging,
     git,
     list_branches,
 )
 
+log = logging.getLogger(__name__)
+
+
+# --- Tool-usage logging ---
+# The 'tool' decorator of langchain turns a function into a
+# 'BaseTool' and dispatches callback events ('on_tool_start' /
+# 'on_tool_end') through the Runnable interface, which is the
+# idiomatic harness for observing tool invocations. Using it would
+# require forwarding a callbacks config through 'select_agent' and
+# both the main and test agent implementations. A decorator applied
+# beneath 'tool' is self-contained, works uniformly for every agent
+# implementation, and preserves the function signature that 'tool'
+# inspects (via '__wrapped__', set by 'functools.wraps') to build
+# the arguments schema — so 'tool' still sees the original, typed
+# parameters rather than the decorator's '*args, **kwargs'.
+def _truncate(value, limit=200):
+    """Shorten long string values so large file contents or patches
+    do not flood the log; the original length is preserved in the
+    suffix for diagnostics."""
+    if isinstance(value, str) and len(value) > limit:
+        return f"{value[:limit]}... <{len(value)} chars>"
+    return value
+
+
+def logged_tool(func):
+    """Decorator that logs each invocation of an agent tool: the
+    tool name, the parameters passed to it, and the duration of the
+    invocation. The data is attached to the log record as structured
+    'extra' fields (rendered by '_StructuredFormatter' in
+    'common.py') so it can be consumed by structured log handlers."""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        # Bind the passed arguments to the parameter names so the
+        # log record carries them as a readable mapping rather than
+        # as a bare tuple. Long values are truncated for readability.
+        try:
+            bound = inspect.signature(func).bind(*args, **kwargs)
+            bound.apply_defaults()
+            params = {key: _truncate(value) for key, value in bound.arguments.items()}
+        except TypeError:
+            params = dict(kwargs)
+        log.info("tool invoked", extra={"tool": func.__name__, "params": params})
+        start = time.monotonic()
+        try:
+            return func(*args, **kwargs)
+        finally:
+            log.info(
+                "tool finished",
+                extra={"tool": func.__name__, "duration": round(time.monotonic() - start, 3)},
+            )
+    return wrapper
+
 
 def main():
+    # --- Logging: same approach as the agent manager (see
+    # 'common.configure_logging') so tool-usage logs and any other
+    # structured records are rendered consistently. ---
+    configure_logging()
+
     # --- The systemd template's instance parameter ---
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -117,19 +179,13 @@ def main():
     # commands. Because it runs in a sandbox no guardrails are
     # enforced on the shell commands.
     @tool
+    @logged_tool
     def list_files(directory: str) -> str:
         """List the files in the given directory."""
-        # Todo: log tool usages. Use the same logging approach as
-        # used by 'agent_manager.py'
-        # 1. Tool name
-        # 2. Parameters passed to the tool
-        # 3. Duration of the tool invocation
-        # This needs to be done for all tools so it is probably better to
-        # abstract this with a decorator. Check if the "tool" decorator
-        # already offers a harness that could be used.
         return "\n".join(sorted(os.listdir(directory)))
 
     @tool
+    @logged_tool
     def view_file(path: str, start_line: int = 1, end_line: int = 0) -> str:
         """View a file's contents with line numbers.
 
@@ -139,7 +195,6 @@ def main():
         lines in the file. Use a line range to page through large
         files instead of loading them whole.
         """
-        # Todo: log tool usage
         with open(path) as f:
             lines = f.read().splitlines()
         total = len(lines)
@@ -154,6 +209,7 @@ def main():
         return f"({total} lines total)\n{body}"
 
     @tool
+    @logged_tool
     def write_file(path: str, content: str) -> str:
         """Write the entire contents of a file, creating or replacing it.
 
@@ -161,12 +217,12 @@ def main():
         For targeted edits prefer 'str_replace' or 'apply_patch',
         which are cheaper and less error-prone.
         """
-        # Todo: log tool usage
         with open(path, "w") as f:
             f.write(content)
         return f"wrote {len(content)} characters to {path}"
 
     @tool
+    @logged_tool
     def str_replace(path: str, old_str: str, new_str: str) -> str:
         """Replace a unique snippet of text in a file.
 
@@ -175,7 +231,6 @@ def main():
         (include more surrounding context to make it unique). The
         surrounding content is preserved verbatim.
         """
-        # Todo: log tool usage
         with open(path) as f:
             content = f.read()
         occurrences = content.count(old_str)
@@ -191,6 +246,7 @@ def main():
         return f"replaced 1 occurrence in {path}"
 
     @tool
+    @logged_tool
     def apply_patch(patch: str) -> str:
         """Apply a unified-diff patch to the working tree.
 
@@ -199,7 +255,6 @@ def main():
         not the git index, using 'git apply'. On failure the error
         output of 'git apply' is returned.
         """
-        # Todo: log tool usage
         with tempfile.NamedTemporaryFile(
             "w", suffix=".patch", delete=False
         ) as f:
@@ -219,6 +274,7 @@ def main():
         return "patch applied"
 
     @tool
+    @logged_tool
     def run_shell(command: str) -> str:
         """Run an arbitrary shell command in the working directory.
 
@@ -234,7 +290,6 @@ def main():
         # separate streams. This reproduces the on-screen ordering of
         # an interactive shell.
 
-        # Todo: log tool usage
         master, slave = pty.openpty()
         proc = subprocess.Popen(
             command,
@@ -328,21 +383,44 @@ def main():
             cwd=work_dir, check=False,
         ).returncode == 0
 
-    # Todo: this should be a loop as new changes might get pushed
-    # while resolving merge conflicts
+    def has_unmerged_files():
+        # Unmerged paths exist while a merge is awaiting conflict
+        # resolution (after 'git merge' reported conflicts and before
+        # the conflicts are resolved and staged).
+        return bool(git(
+            "diff", "--name-only", "--diff-filter=U",
+            cwd=work_dir, check=False, capture=True,
+        ).stdout.strip())
+
+    # Push the agent's commit back to 'origin'. A push is rejected
+    # (non-fast-forward) when the source repository advanced while the
+    # agent was working. On rejection, fetch the new commits, merge
+    # them into the branch, and — should the merge conflict — ask the
+    # agent to resolve the conflicts before retrying. This is a loop
+    # rather than a single retry: new changes may be pushed to the
+    # source repository even while the agent is resolving the
+    # conflicts of a previous merge, so each push attempt that is
+    # rejected starts a fresh fetch+merge. The number of attempts is
+    # capped so a continuously advancing source repository does not
+    # loop forever.
+    max_attempts = 5
     if has_worktree_changes():
         commit_worktree(summary)
-        if push_branch():
-            return
+        for attempt in range(1, max_attempts + 1):
+            if push_branch():
+                return
 
-        # The push was rejected: the source repository moved on. Pull
-        # the new commits and merge them into the branch.
-        git("fetch", "origin", cwd=work_dir)
-        merge = git(
-            "merge", f"origin/{branch}",
-            cwd=work_dir, check=False,
-        )
-        if merge.returncode != 0:
+            # The push was rejected: the source repository moved on.
+            # Integrate its new commits and retry the push.
+            git("fetch", "origin", cwd=work_dir)
+            merge = git(
+                "merge", f"origin/{branch}",
+                cwd=work_dir, check=False,
+            )
+            if merge.returncode == 0:
+                # Clean merge: retry the push on the next iteration.
+                continue
+
             # The merge has conflicts: ask the agent — which has the
             # file, edit, and shell tools — to resolve them and to
             # complete the merge (resolve the conflicted files, 'git
@@ -355,17 +433,27 @@ def main():
                 "to list the conflicted files), then 'git add' the "
                 "resolved paths and 'git commit' to complete the merge."
             )
-            # If the agent resolved the conflicts but did not finalize
-            # the merge, complete it on its behalf so the push can
-            # proceed.
-            if merge_in_progress():
-                commit_worktree(summary + "\n\nmerge of upstream changes")
+            if not merge_in_progress():
+                # The agent completed the merge itself; retry the push.
+                continue
+            if has_unmerged_files():
+                # The agent could not resolve all conflicts. Abort the
+                # merge rather than commit conflict markers, and give
+                # up pushing (the agent's own commit remains local).
+                git("merge", "--abort", cwd=work_dir, check=False)
+                log.warning(
+                    "could not resolve merge conflicts; leaving the "
+                    "agent commit unpushed",
+                    extra={"branch": branch, "attempt": attempt},
+                )
+                return
+            # The agent resolved the conflicts but did not finalize
+            # the merge; complete it on its behalf so the push can
+            # proceed on the next iteration.
+            commit_worktree(summary + "\n\nmerge of upstream changes")
 
-        # Whether the merge succeeded outright or the agent resolved
-        # the conflicts, push the resulting history back.
-        # Todo: This can fail if new changes get pushed while resolving
-        # merge conflicts. That should be adequately handled
-        push_branch()
+        # All attempts exhausted: the last push failure (and the
+        # capped retry count) is already in the journal.
 
 
 if __name__ == "__main__":

@@ -6,7 +6,6 @@ instance per branch of the agent git repository.
 
 import logging
 import subprocess
-import sys
 
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
@@ -16,6 +15,7 @@ from devtools_flake.agent import env
 
 from devtools_agent.common import (
     canonicalize_branch_name,
+    configure_logging,
     list_branches,
 )
 
@@ -50,12 +50,9 @@ def start_unit(canonical):
             check=True,
         )
     except subprocess.CalledProcessError as error:
-        # Todo: Use strucuted logging instead of string interpolation.
-        # For example: log.error("failed to start agent instance for branch", extra = { 'canonical_branch': canonical, 'error': error })
         log.error(
-            "failed to start agent instance for canonical branch name '%s': %s",
-            canonical,
-            error,
+            "failed to start agent instance",
+            extra={"canonical_branch": canonical, "error": error},
         )
 
 
@@ -67,10 +64,9 @@ def reconcile():
     for branch in list_branches():
         canonical = canonicalize_branch_name(branch)
         if unit_active(canonical):
-            log.info("instance already running for branch '%s', ignoring", branch)
+            log.info("instance already running, ignoring", extra={"branch": branch})
             continue
-        # Todo: Use structured logging
-        log.info("starting agent instance for branch '%s'", branch)
+        log.info("starting agent instance", extra={"branch": branch})
         start_unit(canonical)
 
 
@@ -80,18 +76,15 @@ def on_notify_push(*args):
     latest commit of the pushed branch. Reconcile the agent instances
     with the branches of the repository.
     """
-    # Todo: Use structured logging
-    log.info("received push notification: %s", args)
+    log.info("received push notification", extra={"args": list(args)})
     reconcile()
 
 
 def main():
-    # For the time being the manager logs to standard output.
-    logging.basicConfig(
-        level=logging.INFO,
-        stream=sys.stdout,
-        format="%(levelname)s %(name)s: %(message)s",
-    )
+    # Both the agent manager and the agent program share the same
+    # logging setup (see 'common.configure_logging'): level prefix on
+    # stdout, with structured 'extra' fields appended to the line.
+    configure_logging()
 
     DBusGMainLoop(set_as_default=True)
     bus = dbus.SystemBus()
@@ -101,9 +94,11 @@ def main():
         signal_name=env.push_signal.name,
     )
     log.info(
-        "agent manager started; subscribed to push signal %s.%s",
-        env.push_signal.interface,
-        env.push_signal.name,
+        "agent manager started; subscribed to push signal",
+        extra={
+            "push_signal_interface": env.push_signal.interface,
+            "push_signal_name": env.push_signal.name,
+        },
     )
     # Reconcile once at startup so that a reboot of the VM (or a
     # restart of the manager) restarts the agents for all branches.
