@@ -119,6 +119,14 @@ def main():
     @tool
     def list_files(directory: str) -> str:
         """List the files in the given directory."""
+        # Todo: log tool usages. Use the same logging approach as
+        # used by 'agent_manager.py'
+        # 1. Tool name
+        # 2. Parameters passed to the tool
+        # 3. Duration of the tool invocation
+        # This needs to be done for all tools so it is probably better to
+        # abstract this with a decorator. Check if the "tool" decorator
+        # already offers a harness that could be used.
         return "\n".join(sorted(os.listdir(directory)))
 
     @tool
@@ -131,6 +139,7 @@ def main():
         lines in the file. Use a line range to page through large
         files instead of loading them whole.
         """
+        # Todo: log tool usage
         with open(path) as f:
             lines = f.read().splitlines()
         total = len(lines)
@@ -152,6 +161,7 @@ def main():
         For targeted edits prefer 'str_replace' or 'apply_patch',
         which are cheaper and less error-prone.
         """
+        # Todo: log tool usage
         with open(path, "w") as f:
             f.write(content)
         return f"wrote {len(content)} characters to {path}"
@@ -165,6 +175,7 @@ def main():
         (include more surrounding context to make it unique). The
         surrounding content is preserved verbatim.
         """
+        # Todo: log tool usage
         with open(path) as f:
             content = f.read()
         occurrences = content.count(old_str)
@@ -188,6 +199,7 @@ def main():
         not the git index, using 'git apply'. On failure the error
         output of 'git apply' is returned.
         """
+        # Todo: log tool usage
         with tempfile.NamedTemporaryFile(
             "w", suffix=".patch", delete=False
         ) as f:
@@ -221,6 +233,8 @@ def main():
         # merged at the point of writing rather than captured into two
         # separate streams. This reproduces the on-screen ordering of
         # an interactive shell.
+
+        # Todo: log tool usage
         master, slave = pty.openpty()
         proc = subprocess.Popen(
             command,
@@ -314,6 +328,8 @@ def main():
             cwd=work_dir, check=False,
         ).returncode == 0
 
+    # Todo: this should be a loop as new changes might get pushed
+    # while resolving merge conflicts
     if has_worktree_changes():
         commit_worktree(summary)
         if push_branch():
@@ -347,6 +363,8 @@ def main():
 
         # Whether the merge succeeded outright or the agent resolved
         # the conflicts, push the resulting history back.
+        # Todo: This can fail if new changes get pushed while resolving
+        # merge conflicts. That should be adequately handled
         push_branch()
 
 

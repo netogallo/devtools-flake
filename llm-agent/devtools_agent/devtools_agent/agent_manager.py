@@ -50,6 +50,8 @@ def start_unit(canonical):
             check=True,
         )
     except subprocess.CalledProcessError as error:
+        # Todo: Use strucuted logging instead of string interpolation.
+        # For example: log.error("failed to start agent instance for branch", extra = { 'canonical_branch': canonical, 'error': error })
         log.error(
             "failed to start agent instance for canonical branch name '%s': %s",
             canonical,
@@ -67,6 +69,7 @@ def reconcile():
         if unit_active(canonical):
             log.info("instance already running for branch '%s', ignoring", branch)
             continue
+        # Todo: Use structured logging
         log.info("starting agent instance for branch '%s'", branch)
         start_unit(canonical)
 
@@ -77,6 +80,7 @@ def on_notify_push(*args):
     latest commit of the pushed branch. Reconcile the agent instances
     with the branches of the repository.
     """
+    # Todo: Use structured logging
     log.info("received push notification: %s", args)
     reconcile()
 
