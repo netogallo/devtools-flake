@@ -260,10 +260,94 @@ def main():
     )
     messages = agent.invoke(task_prompt(last_revision))
 
+    # Collect the textual content of the agent's response: it is
+    # printed for the journal and reused as the commit message of the
+    # agent's changes (if any).
+    summary_parts = []
     for message in messages:
         content = getattr(message, "content", None)
         if content:
             print(content)
+            summary_parts.append(content)
+    summary = "\n\n".join(summary_parts) or "agent: apply changes"
+
+    # --- Push the agent's changes back to the source repository ---
+    # The agent may have edited the working tree. Stage everything,
+    # commit it under a fixed identity, and push the branch back to
+    # 'origin' (the clone source, i.e. the source repository
+    # 'env.repo_path'). When the push is rejected because the source
+    # repository advanced in the meantime (a non-fast-forward), fetch
+    # the new commits, merge them into the branch, and — should that
+    # merge produce conflicts — send the agent a follow-up message
+    # asking it to resolve them; then push again.
+    def has_worktree_changes():
+        return bool(git(
+            "status", "--porcelain",
+            cwd=work_dir, check=False, capture=True,
+        ).stdout.strip())
+
+    def commit_worktree(message):
+        git("add", "-A", cwd=work_dir)
+        git(
+            "-c", "user.name=devtools-agent",
+            "-c", "user.email=agent@devtools",
+            "commit", "--message", message,
+            cwd=work_dir,
+        )
+
+    def merge_in_progress():
+        # 'MERGE_HEAD' exists while a merge is awaiting completion
+        # (including while conflicts are being resolved).
+        return git(
+            "rev-parse", "--verify", "--quiet", "MERGE_HEAD",
+            cwd=work_dir, check=False,
+        ).returncode == 0
+
+    def push_branch():
+        # Returns True on success. A push is rejected with a non-zero
+        # exit status when it is not a fast-forward, i.e. when the
+        # source repository advanced while the agent was working; the
+        # caller handles that case. The output is not captured so it
+        # is mirrored to the journal like the other git invocations.
+        return git(
+            "push", "origin", branch,
+            cwd=work_dir, check=False,
+        ).returncode == 0
+
+    if has_worktree_changes():
+        commit_worktree(summary)
+        if push_branch():
+            return
+
+        # The push was rejected: the source repository moved on. Pull
+        # the new commits and merge them into the branch.
+        git("fetch", "origin", cwd=work_dir)
+        merge = git(
+            "merge", f"origin/{branch}",
+            cwd=work_dir, check=False,
+        )
+        if merge.returncode != 0:
+            # The merge has conflicts: ask the agent — which has the
+            # file, edit, and shell tools — to resolve them and to
+            # complete the merge (resolve the conflicted files, 'git
+            # add' the resolved paths, then 'git commit').
+            agent.invoke(
+                "A push of your changes was rejected because the "
+                "source repository advanced while you were working, "
+                "and merging its history produced conflicts. Resolve "
+                "the conflicts in the working tree (use 'git status' "
+                "to list the conflicted files), then 'git add' the "
+                "resolved paths and 'git commit' to complete the merge."
+            )
+            # If the agent resolved the conflicts but did not finalize
+            # the merge, complete it on its behalf so the push can
+            # proceed.
+            if merge_in_progress():
+                commit_worktree(summary + "\n\nmerge of upstream changes")
+
+        # Whether the merge succeeded outright or the agent resolved
+        # the conflicts, push the resulting history back.
+        push_branch()
 
 
 if __name__ == "__main__":

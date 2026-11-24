@@ -113,8 +113,11 @@ let
             extraGroups = [ "wheel" ];
             isNormalUser = true;
             hashedPassword = "$y$j9T$Ij.zgsiQ9UbG805vuIjz0/$qiZCBxun/3VJrAic6AGusQTlX4VN2W.Mp4LrFPrFZ6B";
+            uid = 60375;
           };
-          users.groups.nixos = { };
+          users.groups.nixos = {
+            gid = 60375;
+          };
           services.getty.autologinUser = "nixos";
 
           # 'poweroff' is authorized through polkit: without the rule
