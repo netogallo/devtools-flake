@@ -252,6 +252,8 @@ let
     ''
   ;
 
+  app-config = devtools-prelude.get-config lite-llm-name;
+
   /**
   This wrapper script runs lite-llm with the configuration
   defined by the 'lite-llm-config-dir' derivation. The
@@ -285,7 +287,7 @@ let
     #!${pkgs.bash}/bin/bash
     set -e
 
-    source "${devtools-prelude.get-config lite-llm-name}"
+    source "${app-config.source-config}"
 
     ${master-key-setup}
 
@@ -303,7 +305,7 @@ let
     key-script-text = ''
       #!${pkgs.bash}/bin/bash
       set -e
-      source "${devtools-prelude.get-config lite-llm-name}"
+      source "${app-config.source-config}"
       ${users-env}
       user_key="$users_dir/${user-name}.key"
 

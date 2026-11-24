@@ -515,6 +515,7 @@ let
           )
     '';
   };
+  app-config = devtools-prelude.get-config llm-agent-name;
 
   /**
   The host-side launch script. It exposes two modes:
@@ -549,7 +550,7 @@ let
     eval "$(${pkgs.docopts}/bin/docopts -h "$usage" : "$@")"
 
     if [ "$run" = "true" ]; then
-      source "${devtools-prelude.get-config llm-agent-name}"
+      source "${app-config.source-config}"
 
       if ! ${pkgs.curl}/bin/curl -s "${provider-endpoint-url}" >/dev/null 2>&1; then
         echo -e "\033[33mWarning: no llm provider seems to be reachable at '${provider-endpoint-url}'.\033[0m" >&2
