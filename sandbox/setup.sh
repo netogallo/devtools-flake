@@ -1,8 +1,8 @@
 usage="
 Usage:
-  setup-${opencode-container-name} nat activate
-  setup-${opencode-container-name} nat deactivate
-  setup-${opencode-container-name} (-h | --help)
+  setup-${sandbox-name} nat activate
+  setup-${sandbox-name} nat deactivate
+  setup-${sandbox-name} (-h | --help)
 
 Modes:
   nat activate      Ensure the host is configured to run the
@@ -21,8 +21,8 @@ nat=false
 activate=false
 deactivate=false
 
-# Parse the mode flags; docopts turns the usage text into the
-# 'run', 'setup', 'activate' and 'deactivate' shell variables.
+# Parse the mode flags; docopts turns the usage text into shell
+# variables.
 eval "$(docopts -h "$usage" : "$@")"
 
 # Idempotently ensure ('-C' checks the rule, '-I' inserts it at

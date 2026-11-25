@@ -1,27 +1,48 @@
 /** This file holds the flake configuration spec for the
-*   'opencode-container' development tool. The tool runs 'opencode'
-*   (and any other configured packages) inside a systemd-nspawn
-*   container, which provides:
-*   - A disposable development environment bound to the directory
-*     the container is launched from.
-*   - Multiple named container instances.
-*   - A network setup which isolates the containers in vlans while
-*     still allowing them to reach the network through the host.
+*   'opencode' development tool. An opencode configuration defines
+*   the packages that make up an opencode setup and exposes:
+*   - A runnable flake app ('devtools/<name>') that runs opencode
+*     directly on the host (no container).
+*   - A NixOS module ('nixos-module') that installs the same
+*     packages inside a sandbox container (see
+*     'development-tools.sandbox').
+*
+*   Multiple named opencode configurations can coexist in the same
+*   flake; each is exposed as its own app and its own NixOS module.
+*   The container wrapping itself is handled by 'sandbox', which
+*   imports the module through its 'nixos-modules' option, following
+*   the same pattern used by 'llm-agent' to consume 'llm-providers'
+*   in 'examples/flakeModule.nix'.
 */
-{ self, inputs, lib, config, flake-parts-lib, ... }:
+top@{ self, inputs, lib, config, flake-parts-lib, ... }:
 let
   inherit (lib) types mkOption literalExpression;
   inherit (flake-parts-lib) mkPerSystemOption;
   flake-config = config;
 
-  opencode-container-spec = types.submodule {
+  opencode-spec = types.submodule ({ config, ... }:
+  let
+    # The NixOS module contributed by this opencode instance. It
+    # only installs the configured packages; the container host
+    # setup (networking, user, bind mounts, ...) is owned by
+    # 'sandbox'. The module is pkgs-independent (it receives the
+    # container's package set through its own arguments) and is
+    # derived solely from 'packages', so it does not introduce a
+    # self-reference cycle.
+    nixos-module = { pkgs, ... }: {
+      environment.systemPackages = config.packages pkgs;
+    };
+  in
+  {
     options = {
       enable = mkOption {
         type = types.bool;
         description = ''
-          Enable this container instance. This will trigger the
-          creation of the application used to launch and manage
-          the container.
+          Enable this opencode configuration. This triggers the
+          creation of the application used to run opencode on the
+          host. The 'nixos-module' is always available, regardless
+          of this flag, so that a sandbox can import it even when
+          the host-side app is not built.
         '';
         default = false;
       };
@@ -29,11 +50,12 @@ let
       packages = mkOption {
         type = types.functionTo (types.listOf types.package);
         description = ''
-          Packages available inside the container. The option takes a
-          function which receives the package set used to build the
-          container and returns the list of packages to install. This
-          way the container configuration does not rely on a
-          nixpkgs instance of its own.
+          Packages that make up this opencode configuration. The
+          option takes a function which receives the package set
+          used to build the app (or the container, when imported as a
+          NixOS module) and returns the list of packages to install.
+          This way the configuration does not rely on a nixpkgs
+          instance of its own.
         '';
         default = ps: [ ps.opencode ps.git ];
         defaultText = literalExpression "ps: [ ps.opencode ps.git ]";
@@ -42,67 +64,58 @@ let
         '';
       };
 
-      vlan = mkOption {
-        type = types.ints.between 1 4094;
+      nixos-module = mkOption {
+        type = types.deferredModule;
+        readOnly = true;
         description = ''
-          The vlan the container is attached to through its 'eth1'
-          interface. The host side of the vlan is a bridge which acts
-          as the network gateway of the container (see the
-          'nspawn-container' nixos module). Containers that run
-          simultaneously must either be attached to different vlans
-          or use different node numbers.
-        '';
-        default = 42;
-      };
+          A NixOS module that installs this opencode configuration
+          inside a sandbox container. The module is computed from
+          'packages' and is read-only; pass it to a sandbox's
+          'nixos-modules' to run opencode inside the container, e.g.
 
-      node-number = mkOption {
-        type = types.ints.between 1 253;
-        description = ''
-          The number of the container within its vlan, following the
-          static ip assignment scheme of the 'nspawn-container'
-          module: the container takes the addresses
-          '192.168.<vlan>.<node-number>' and
-          '2001:db8:<vlan>::<node-number>' while the host-side
-          bridge takes '.254' and '::fe'.
+            development-tools.sandbox.<name>.nixos-modules = [
+              development-tools.opencode.<name>.nixos-module
+            ];
         '';
-        default = 2;
       };
     };
-  };
+
+    config.nixos-module = nixos-module;
+  });
 
   perSystem = { pkgs, ... }:
   let
-    # One configuration per-module. For each container defined in the
-    # configuration, a new module is created by fixing the corresponding
-    # configuration context.
-    to-opencode-container = name: container:
+    # One module per configured opencode instance.
+    to-opencode = name: opencode:
       {
         imports = [
-          (import ./setup.nix { opencode-container-name = name; opencode-container = container; })
+          (import ./setup.nix { opencode-name = name; opencode-config = opencode; })
         ];
       }
     ;
     imports = lib.attrValues (
-      lib.mapAttrs to-opencode-container flake-config.development-tools.opencode-container
+      lib.mapAttrs to-opencode flake-config.development-tools.opencode
     );
   in
   {
     inherit imports;
   };
 in
-  {
-    options = {
-      development-tools.opencode-container = mkOption {
-        type = types.attrsOf opencode-container-spec;
-        description = ''
-          The 'opencode-container' development tool provides
-          sandboxed systemd-nspawn containers to run the opencode
-          programming assistant. Each attribute becomes an individual
-          container instance with its own application
-          ('devtools/<name>').
-        '';
-        default = {};
-      };
-      perSystem = mkPerSystemOption perSystem;
+{
+  options = {
+    development-tools.opencode = mkOption {
+      type = types.attrsOf opencode-spec;
+      description = ''
+        The 'opencode' development tool installs the 'opencode'
+        programming assistant (and any other configured packages).
+        Each attribute becomes an individual configuration exposed
+        as its own app ('devtools/<name>') that runs opencode
+        directly on the host, and contributes a NixOS module
+        ('nixos-module') that can be imported by a 'sandbox'
+        container to run opencode inside it.
+      '';
+      default = {};
     };
-  }
+    perSystem = mkPerSystemOption perSystem;
+  };
+}

@@ -10,6 +10,7 @@ let
     ./llm-providers/config.nix
     ./llm-providers/prelude.nix
     ./llm-agent/config.nix
+    ./sandbox/config.nix
   ];
   inherit (flake-parts-lib) mkPerSystemOption;
   perSystem = { system, ... }:
