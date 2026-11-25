@@ -78,6 +78,13 @@ let
   # the "$HOME" variable.
   container-config = stable-config-path;
   container-root-dir = "${container-config}/root";
+
+  # Todo: setup scripts need to create this directory
+  container-home-dir = "${container-config}/home";
+
+  # Todo: this module should no longer expose a container
+  # instead it should expose a nixos module that can then
+  # be imported by configurations of sandbox/config.nix
   nixos = nixpkgs.lib.nixosSystem {
     modules = [
       ({ config, pkgs, ... }:
@@ -108,6 +115,9 @@ let
           # its own.
           environment.systemPackages = opencode-container.packages pkgs;
 
+          # todo: the user should be configurable in the sandbox/config.nix code
+          # Offer a simplified set of options that allow setting the uid, gid and
+          # password. All other values should be hardcoded as they are now
           users.users.nixos = {
             group = "users";
             extraGroups = [ "wheel" ];
@@ -136,6 +146,8 @@ let
             '';
           };
 
+          # Todo: Also bind the home directory of the container's user
+          # to the container-home-dir
           virtualisation.systemd-nspawn.options = [
             "--bind=.:/home/nixos/workspace"
           ];
@@ -200,6 +212,8 @@ let
     };
   };
 
+  # Todo: this run and setup code should be generalized to
+  # all containers once this gets moved to sandbox/setup.nix
   launch-opencode-container = pkgs.writeShellApplication {
     name = "launch-${opencode-container-name}";
 
@@ -261,10 +275,9 @@ let
   };
 in
 {
-  #options.apps = mkOption {
-  #  type = types.lazyAttrsOf types.anything;
-  #};
 
+  # Todo: no longer expose the app wrapped as a container. Instead this should launch
+  # opencode as a regular program, not a nspawn container
   config.apps."devtools/${opencode-container-name}" = mkIf opencode-container.enable {
     type = "app";
     program = lib.getExe launch-opencode-container;
