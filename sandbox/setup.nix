@@ -96,117 +96,141 @@ let
   user = sandbox-config.user;
   user-name = "nixos";
 
+  # The portable part of the container's NixOS configuration: the
+  # user account, the console autologin, the polkit power-off rule,
+  # the installed packages, the hostname and the networking setup
+  # (eth1 vlan, static addresses, dns).
+  #
+  # This module is deliberately independent of the nspawn wrapping
+  # (it does not import the 'nspawn-container' module, nor does it set
+  # 'virtualisation.rootDir' or 'virtualisation.systemd-nspawn.options'):
+  # those are host-launch specifics provided by the real build below
+  # and, in tests, by the NixOS test framework's 'containers.<name>'
+  # machinery. Keeping the portable config separate allows the same
+  # module to be imported both by the real container and by the
+  # integration test, so the test exercises the actual container
+  # configuration rather than a re-implementation.
+  container-module = { config, pkgs, ... }:
+  let
+    # All network interfaces defined for the container (see
+    # guest-networking-options.nix); the address configuration
+    # below is derived from these definitions.
+    all-interfaces = config.virtualisation.allInterfaces;
+  in
+  {
+    # The container name determines the machine name given to
+    # systemd-nspawn, the name of the network namespace and the
+    # default root directory ('./<name>-root'); it is unique
+    # per configured container instance.
+    networking.hostName = sandbox-name;
+
+    # Packages configured by the instance plus any contributed
+    # by the imported 'nixos-modules'. The option function
+    # receives the package set of the container, so the
+    # configuration does not rely on a nixpkgs instance of its
+    # own.
+    environment.systemPackages = sandbox-config.packages pkgs;
+
+    users.users.${user-name} = {
+      group = "users";
+      extraGroups = [ "wheel" ];
+      isNormalUser = true;
+      inherit (user) hashedPassword uid;
+    };
+    users.groups.${user-name} = {
+      inherit (user) gid;
+    };
+    services.getty.autologinUser = user-name;
+
+    # 'poweroff' is authorized through polkit: without the rule
+    # below, a non-root user would be required to authenticate.
+    security.polkit = {
+      enable = true;
+      extraConfig = ''
+        polkit.addRule(function(action, subject) {
+          if (subject.isInGroup("wheel") &&
+              (action.id == "org.freedesktop.login1.power-off" ||
+               action.id == "org.freedesktop.login1.power-off-multiple-sessions" ||
+               action.id == "org.freedesktop.login1.power-off-ignore-inhibit")) {
+            return polkit.Result.YES;
+          }
+        });
+      '';
+    };
+
+    # Attach 'eth1' to the configured vlan. Addresses are
+    # assigned manually below.
+    virtualisation.interfaces.eth1 = {
+      inherit vlan;
+      assignIP = false;
+    };
+
+    networking.useHostResolvConf = false;
+    services.resolved.enable = true;
+
+    nix.settings.experimental-features = [ "flakes" "nix-command" ];
+
+    # The addresses are configured statically; do not let
+    # dhcpcd touch the interfaces.
+    networking.useDHCP = false;
+
+    systemd.network = {
+      enable = true;
+
+      # Address configuration derived from the vlans of the
+      # defined interfaces (see the scheme above).
+      networks = lib.mapAttrs
+        (name: iface: {
+          enable = true;
+          matchConfig.Name = name;
+          dns = dns-servers;
+          addresses = [
+            {
+              Address = "192.168.${toString iface.vlan}.${toString node-number}/24";
+            }
+          ];
+          routes = [
+            {
+              Gateway = "192.168.${toString iface.vlan}.254";
+            }
+          ];
+        })
+        all-interfaces;
+    };
+  };
+
+  # Host-launch specifics that only apply to the real (non-test)
+  # container: the target platform, the root directory of the
+  # container's filesystem and the bind mounts that expose the user's
+  # persistent home and the launch directory as the workspace. The
+  # NixOS test framework provides its own root directory and nspawn
+  # options for test containers, so these are not part of
+  # 'container-module'.
+  host-launch-module = {
+    nixpkgs.hostPlatform = host-system;
+
+    # The container's root filesystem lives in the devtools
+    # configuration directory (see the note on 'container-config'
+    # above for why this path is used).
+    virtualisation.rootDir = container-root-dir;
+
+    # Bind the launch directory as the user's workspace and the
+    # persistent home directory (outside of the root filesystem)
+    # as the user's home. The workspace bind takes precedence
+    # over the home bind for that subtree.
+    virtualisation.systemd-nspawn.options = [
+      "--bind=${container-home-dir}:/home/${user-name}"
+      "--bind=.:/home/${user-name}/workspace"
+    ];
+  };
+
   nixos = nixpkgs.lib.nixosSystem {
     modules = [
-      ({ config, pkgs, ... }:
-      let
-        # All network interfaces defined for the container (see
-        # guest-networking-options.nix); the address configuration
-        # below is derived from these definitions.
-        all-interfaces = config.virtualisation.allInterfaces;
-      in
-      {
-        imports = [
-          "${nixpkgs}/nixos/modules/virtualisation/nspawn-container/default.nix"
-          "${nixpkgs}/nixos/modules/virtualisation/guest-networking-options.nix"
-        ] ++ sandbox-config.nixos-modules;
-
-        config = {
-          nixpkgs.hostPlatform = host-system;
-
-          # The container name determines the machine name given to
-          # systemd-nspawn, the name of the network namespace and the
-          # default root directory ('./<name>-root'); it is unique
-          # per configured container instance.
-          networking.hostName = sandbox-name;
-
-          # Packages configured by the instance plus any contributed
-          # by the imported 'nixos-modules'. The option function
-          # receives the package set of the container, so the
-          # configuration does not rely on a nixpkgs instance of its
-          # own.
-          environment.systemPackages = sandbox-config.packages pkgs;
-
-          users.users.${user-name} = {
-            group = "users";
-            extraGroups = [ "wheel" ];
-            isNormalUser = true;
-            inherit (user) hashedPassword uid;
-          };
-          users.groups.${user-name} = {
-            inherit (user) gid;
-          };
-          services.getty.autologinUser = user-name;
-
-          # 'poweroff' is authorized through polkit: without the rule
-          # below, a non-root user would be required to authenticate.
-          security.polkit = {
-            enable = true;
-            extraConfig = ''
-              polkit.addRule(function(action, subject) {
-                if (subject.isInGroup("wheel") &&
-                    (action.id == "org.freedesktop.login1.power-off" ||
-                     action.id == "org.freedesktop.login1.power-off-multiple-sessions" ||
-                     action.id == "org.freedesktop.login1.power-off-ignore-inhibit")) {
-                  return polkit.Result.YES;
-                }
-              });
-            '';
-          };
-
-          # Bind the launch directory as the user's workspace and the
-          # persistent home directory (outside of the root filesystem)
-          # as the user's home. The workspace bind takes precedence
-          # over the home bind for that subtree.
-          virtualisation.systemd-nspawn.options = [
-            "--bind=${container-home-dir}:/home/${user-name}"
-            "--bind=.:/home/${user-name}/workspace"
-          ];
-
-          # Attach 'eth1' to the configured vlan. Addresses are
-          # assigned manually below.
-          virtualisation.interfaces.eth1 = {
-            inherit vlan;
-            assignIP = false;
-          };
-
-          virtualisation.rootDir = container-root-dir;
-
-          networking.useHostResolvConf = false;
-          services.resolved.enable = true;
-
-          nix.settings.experimental-features = [ "flakes" "nix-command" ];
-
-          # The addresses are configured statically; do not let
-          # dhcpcd touch the interfaces.
-          networking.useDHCP = false;
-
-          systemd.network = {
-            enable = true;
-
-            # Address configuration derived from the vlans of the
-            # defined interfaces (see the scheme above).
-            networks = lib.mapAttrs
-              (name: iface: {
-                enable = true;
-                matchConfig.Name = name;
-                dns = dns-servers;
-                addresses = [
-                  {
-                    Address = "192.168.${toString iface.vlan}.${toString node-number}/24";
-                  }
-                ];
-                routes = [
-                  {
-                    Gateway = "192.168.${toString iface.vlan}.254";
-                  }
-                ];
-              })
-              all-interfaces;
-          };
-        };
-      })
-    ];
+      "${nixpkgs}/nixos/modules/virtualisation/nspawn-container/default.nix"
+      "${nixpkgs}/nixos/modules/virtualisation/guest-networking-options.nix"
+      container-module
+      host-launch-module
+    ] ++ sandbox-config.nixos-modules;
   };
 
   # The nat setup helper. It is not exposed as an app on its own; the
@@ -288,6 +312,36 @@ let
       sudo "${setup-app}" "$@"
     fi
   '';
+
+  # Integration test: boot the sandbox container inside a NixOS test
+  # VM and verify it reaches 'multi-user.target' and shuts down
+  # cleanly. The test uses the NixOS test framework's 'containers'
+  # support, which wraps 'container-module' with the same
+  # nspawn-container machinery used by the real launch path; the same
+  # 'nixos-modules' (e.g. an opencode configuration) are imported, so
+  # the test exercises the actual container configuration.
+  #
+  # The test driver exposes each container as a Python variable named
+  # after the 'pythonized' container name (non-identifier characters
+  # such as '-' become '_'), so the variable name used in the test
+  # script is derived from 'sandbox-name' the same way.
+  machine-var = lib.stringAsChars
+    (c: if builtins.match "[A-Za-z0-9_]" c != null then c else "_")
+    sandbox-name;
+
+  sandbox-test = pkgs.testers.runNixOSTest {
+    name = "sandbox-${sandbox-name}";
+    containers.${sandbox-name} = {
+      imports = [ container-module ] ++ sandbox-config.nixos-modules;
+    };
+    testScript = ''
+      ${machine-var}.start()
+      with subtest("the sandbox container boots to multi-user.target"):
+          ${machine-var}.wait_for_unit("multi-user.target")
+      with subtest("the sandbox container shuts down cleanly"):
+          ${machine-var}.shutdown()
+    '';
+  };
 in
 {
   config.apps."devtools/${sandbox-name}" = mkIf sandbox-config.enable {
@@ -295,4 +349,6 @@ in
     program = "${launch-sandbox}";
     meta.description = "Launch and manage the '${sandbox-name}' sandbox container.";
   };
+
+  config.checks."tests/devtools/${sandbox-name}" = mkIf sandbox-config.enable sandbox-test;
 }
