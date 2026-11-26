@@ -79,7 +79,7 @@ let
   # nixpkgs is using the 'toCommandLineShellGNU' function to construct the 'systemd-nspawn'
   # invokation, which results in all parameters passed to the shell using single quotes
   # (ie. systemd-nspawn --rootDir '<virtualisation.rootDir>'). When this is done, variables
-  # are note expanded so there is no way to reference the desired directory as it relies in
+  # are not expanded so there is no way to reference the desired directory as it relies in
   # the "$HOME" variable.
   container-config = stable-config-path;
   container-root-dir = "${container-config}/root";
@@ -95,6 +95,8 @@ let
   # original 'opencode-container' implementation.
   user = sandbox-config.user;
   user-name = "nixos";
+
+  workspace-root = "/var/workspace";
 
   # The portable part of the container's NixOS configuration: the
   # user account, the console autologin, the polkit power-off rule,
@@ -220,8 +222,11 @@ let
     # over the home bind for that subtree.
     virtualisation.systemd-nspawn.options = [
       "--bind=${container-home-dir}:/home/${user-name}"
-      "--bind=.:/home/${user-name}/workspace"
+      "--bind=.:${workspace-root}"
     ];
+
+    # Todo: When the user logs in (ie. nixos), the shell should
+    # automatically cd to 'workspace-root'
   };
 
   nixos = nixpkgs.lib.nixosSystem {
@@ -238,6 +243,8 @@ let
   # is a 'writeShellApplication' (a directory with 'bin/<name>'), so
   # it is referenced by absolute path inside the launcher script rather
   # than as an 'app.program' (which must be a single store path).
+  # Todo: move the main run application to a separate file and use the
+  #   'template' function to create it. Same pattern as done by the setup.
   setup-sandbox = pkgs.writeShellApplication {
     name = "setup-${sandbox-name}";
     runtimeInputs = with pkgs; [
@@ -261,6 +268,9 @@ let
     #!${pkgs.bash}/bin/bash
     set -e
 
+    # Todo: Add a flag called "--delete" to the 'run' mode. When
+    #   "--delete" is set, the container's root filesystem should be
+    #   deleted before launch.
     usage="
     Usage: launch-${sandbox-name} run
            launch-${sandbox-name} setup nat activate
