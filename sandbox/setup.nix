@@ -333,6 +333,17 @@ let
     name = "sandbox-${sandbox-name}";
     containers.${sandbox-name} = {
       imports = [ container-module ] ++ sandbox-config.nixos-modules;
+      config = {
+        nix.settings = {
+          system-features = [ "uid-range" ];
+          auto-allocate-uids = true;
+          experimental-features = [
+            "auto-allocate-uids"
+            "nix-command"
+            "cgroups"
+          ];
+        };
+      };
     };
     testScript = ''
       ${machine-var}.start()
