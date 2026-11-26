@@ -225,8 +225,19 @@ let
       "--bind=.:${workspace-root}"
     ];
 
-    # Todo: When the user logs in (ie. nixos), the shell should
-    # automatically cd to 'workspace-root'
+    # Drop the user into the workspace on login. 'loginShellInit'
+    # is sourced from '/etc/profile' by login shells (the console
+    # autologin spawns a login shell), so the user lands in the
+    # bind-mounted launch directory rather than in the persistent
+    # home. The rule is scoped to the sandbox user so root (or any
+    # other account) is unaffected. The 'cd' is best-effort: if the
+    # workspace is not mounted (e.g. a manual login outside of the
+    # launch path) the shell stays in the home directory.
+    programs.bash.loginShellInit = ''
+      if [ "$(id -un)" = "${user-name}" ]; then
+        cd "${workspace-root}" 2>/dev/null || true
+      fi
+    '';
   };
 
   nixos = nixpkgs.lib.nixosSystem {
@@ -243,8 +254,6 @@ let
   # is a 'writeShellApplication' (a directory with 'bin/<name>'), so
   # it is referenced by absolute path inside the launcher script rather
   # than as an 'app.program' (which must be a single store path).
-  # Todo: move the main run application to a separate file and use the
-  #   'template' function to create it. Same pattern as done by the setup.
   setup-sandbox = pkgs.writeShellApplication {
     name = "setup-${sandbox-name}";
     runtimeInputs = with pkgs; [
@@ -264,64 +273,26 @@ let
   # 'lite-llm' and 'llm-agent' apps. Runtime tools are referenced by
   # absolute store path inside the script instead of through
   # 'runtimeInputs' (which is a 'writeShellApplication' feature).
-  launch-sandbox = pkgs.writeScript "launch-${sandbox-name}" ''
-    #!${pkgs.bash}/bin/bash
-    set -e
-
-    # Todo: Add a flag called "--delete" to the 'run' mode. When
-    #   "--delete" is set, the container's root filesystem should be
-    #   deleted before launch.
-    usage="
-    Usage: launch-${sandbox-name} run
-           launch-${sandbox-name} setup nat activate
-           launch-${sandbox-name} setup nat deactivate
-           launch-${sandbox-name} (-h | --help)
-
-    Modes:
-      run                   Boot the nspawn container.
-      setup nat activate    Ensure the host is configured to run the
-                            container: ip forwarding is active and the
-                            firewall forwards the container's traffic
-                            between the container's bridge
-                            ('${bridge}') and the system's network
-                            interfaces.
-      setup nat deactivate  Undo the configuration created by
-                            'setup activate'.
-    "
-
-    # The mode flags read below, pre-initialized so that they are
-    # always defined; docopts assigns the real values below.
-    run=false
-    setup=false
-
-    # shellcheck disable=SC1091
-    source ${source-config}
-
-    # Parse the mode flags; docopts turns the usage text into the
-    # 'run', 'setup', 'activate' and 'deactivate' shell variables.
-    eval "$(${pkgs.docopts}/bin/docopts -h "$usage" : "$@")"
-
-    if [ "$run" = "true" ]; then
-      # The container keeps the user's home directory outside of the
-      # root filesystem so that it survives rebuilds; make sure it
-      # exists before booting (the home bind mount below would
-      # otherwise fail).
-      mkdir -p "${container-home-dir}"
-
-      # The container needs ip forwarding to reach the network
-      # through the host.
-      if [ "$(cat /proc/sys/net/ipv4/ip_forward)" != "1" ]; then
-        echo "Warning: ip forwarding is not active on the host." >&2
-        echo "Run '$0 setup nat activate' to configure the host system." >&2
-      fi
-      exec sudo ${lib.getExe nixos.config.system.build.nspawn}
-    fi
-
-    if [[ "$setup" = "true" ]]; then
-      shift
-      sudo "${setup-app}" "$@"
-    fi
-  '';
+  #
+  # The script body is kept in a separate file ('launch.sh') and
+  # instantiated with the 'template' function, following the same
+  # pattern used by 'setup-sandbox' above. Only the placeholders
+  # listed below are substituted; the script must therefore avoid
+  # shell '${var}' braces for any variable that is not a template key
+  # (use '$var' instead).
+  launch-sandbox = pkgs.writeScript "launch-${sandbox-name}" (template ./launch.sh {
+    inherit
+      sandbox-name
+      bridge
+      container-home-dir
+      container-root-dir
+      source-config
+      setup-app
+      ;
+    bash = pkgs.bash;
+    docopts = pkgs.docopts;
+    nspawn = lib.getExe nixos.config.system.build.nspawn;
+  });
 
   # Integration test: boot the sandbox container inside a NixOS test
   # VM and verify it reaches 'multi-user.target' and shuts down
