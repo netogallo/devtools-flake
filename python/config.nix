@@ -1,14 +1,234 @@
-# Todo: this module should allow configuring python environments. It should follow the same
-# style as the modules in this repository such that multiple configurations can be defined
-# simultaneosuly. The configuration should allow the following:
-# * Expose an option to define packages that will be bundled with the python environment. It should
-#   be a function that becomes an argument to the 'withPackages' function. Furthermore, multiple
-#   declarations must be meregable by calling all functions and concatenating the result.
-# * It should expose an application, named like the configuration. It should have the following modes:
-#   - python: Forwards the remaining arguments to the python intepreter
-#   - pip: Forwards the remaining arguments to pip
-#   - activate/deactivate: Adds the relevant items, such as PATH items, to the shell so the interpreter and modules
-#     bundled by this configuration become available in the shell
-# * It should expose a nixos module that can be added to a sandbox container. See the 'examples/flakeModue.nix'
-#   for a concrete example of the desired usage. This module should add the python iterpreter and any applications
-#   exposed by the python modules to the system path.
+/** This file holds the flake configuration spec for the
+*   'python' development tool. A python configuration defines a
+*   python interpreter bundled with a set of packages and exposes:
+*   - A runnable flake app ('devtools/<name>') that dispatches to the
+*     interpreter (mode 'python'), pip (mode 'pip') or activates and
+*     deactivates the environment in the current shell (modes
+*     'activate'/'deactivate').
+*   - A NixOS module ('nixos-module') that installs the python
+*     interpreter and the applications exposed by the bundled
+*     python modules inside a sandbox container (see
+*     'development-tools.sandbox').
+*
+*   Multiple named python configurations can coexist in the same
+*   flake; each is exposed as its own app and its own NixOS module,
+*   following the same style used by 'opencode' (see
+*   opencode/config.nix).
+*
+*   The 'packages' option is a function from the python package set
+*   to a list of packages, directly compatible with
+*   'python.withPackages'. Multiple declarations of 'packages' are
+*   merged by calling every declared function with the package set
+*   and concatenating the resulting lists, so 'mkMerge' can be used
+*   to compose environments incrementally.
+*/
+top@{ self, inputs, lib, config, flake-parts-lib, ... }:
+let
+  inherit (lib) types mkOption literalExpression;
+  inherit (flake-parts-lib) mkPerSystemOption;
+  flake-config = config;
+
+  # A function from the python package set to a list of packages,
+  # merged by calling every declared function and concatenating the
+  # results. The merged value is still a function, so it can be
+  # passed straight to 'python.withPackages' regardless of how many
+  # 'packages' declarations were merged into the option.
+  package-function-type = types.functionTo (types.listOf types.package) // {
+    merge = loc: defs: py: lib.concatMap (def: def.value py) defs;
+  };
+
+  python-spec = types.submodule ({ config, name, ... }:
+  let
+    # The NixOS module contributed by this python instance. It
+    # installs the configured interpreter (with its bundled
+    # packages, which already expose every binary shipped by the
+    # python modules) and the 'devtools/<name>' launcher itself, so
+    # both the interpreter and the application modes are available
+    # inside a sandbox container. The module is pkgs-independent (it
+    # receives the container's package set through its own arguments)
+    # and is derived solely from the readonly options below, so it
+    # does not introduce a self-reference cycle.
+    nixos-module = { pkgs, ... }: {
+      environment.systemPackages =
+        [ (config.python-instance pkgs) ] ++
+        [ (config.application pkgs) ];
+    };
+
+    # A shell-safe identifier used for the PATH backup variable
+    # emitted by the 'activate'/'deactivate' modes.
+    backup-var = "_DEVTOOLS_PYTHON_${
+      lib.strings.toUpper (lib.replaceStrings [ "-" ] [ "_" ] name)
+    }_PATH";
+  in
+  {
+    options = {
+      enable = mkOption {
+        type = types.bool;
+        description = ''
+          Enable this python configuration. This triggers the
+          creation of the application used to dispatch to the
+          interpreter, pip and the activate/deactivate shell
+          helpers. The 'nixos-module' is always available,
+          regardless of this flag, so that a sandbox can import it
+          even when the host-side app is not built.
+        '';
+        default = false;
+      };
+
+      packages = mkOption {
+        type = package-function-type;
+        description = ''
+          Packages to bundle with this python environment. The
+          option takes a function which receives the python package
+          set used to build the app (or the container, when imported
+          as a NixOS module) and returns the list of packages to
+          install. The function is passed straight to
+          'python.withPackages'.
+
+          Multiple declarations of this option are merged by
+          calling every declared function with the package set and
+          concatenating the resulting lists, so 'mkMerge' can be
+          used to compose environments incrementally.
+        '';
+        default = py: [ ];
+        defaultText = literalExpression "py: [ ]";
+        example = literalExpression ''
+          py: with py; [ py.ipython py.requests ]
+        '';
+      };
+
+      python-instance = mkOption {
+        type = types.functionTo types.package;
+        readOnly = true;
+        description = ''
+          The python interpreter with the configured 'packages'
+          bundled through 'withPackages'. This is a function from the
+          package set to the resulting derivation, so the same
+          configuration can be built against both the host's and a
+          container's package set.
+        '';
+      };
+
+      application = mkOption {
+        type = types.functionTo types.package;
+        readOnly = true;
+        description = ''
+          The 'devtools/<name>' launcher exposed by this python
+          configuration, as a function from the package set to the
+          resulting derivation. The launcher dispatches to the
+          interpreter (mode 'python'), pip (mode 'pip') or emits the
+          shell snippets that add or remove the environment from
+          PATH (modes 'activate'/'deactivate').
+        '';
+      };
+
+      nixos-module = mkOption {
+        type = types.deferredModule;
+        readOnly = true;
+        description = ''
+          A NixOS module that installs this python configuration
+          inside a sandbox container. The module is computed from
+          the readonly options above and is read-only; pass it to a
+          sandbox's 'nixos-modules' to run the environment inside the
+          container, e.g.
+
+            development-tools.sandbox.<name>.nixos-modules = [
+              development-tools.python.<name>.nixos-module
+            ];
+        '';
+      };
+    };
+
+    config = {
+      # The interpreter bundled with the configured packages. Built
+      # against whatever package set it is eventually evaluated with,
+      # so the same configuration works on the host and inside a
+      # container.
+      python-instance = pkgs:
+        pkgs.python3.withPackages (config.packages);
+
+      # The 'devtools/<name>' launcher. 'python' and 'pip' forward to
+      # the interpreter; 'activate' and 'deactivate' are meant to be
+      # evaluated by the shell
+      # ('eval "$(devtools/<name> activate)"') so they emit the
+      # relevant environment mutations instead of performing them
+      # directly.
+      #
+      # A 'writeScript' is used (instead of 'writeShellApplication')
+      # so the derivation's out path is the executable itself: this
+      # makes 'app.program = "${application ...}"' a valid
+      # single-path placeholder, matching the pattern used by the
+      # 'opencode' app.
+      application = pkgs:
+        let
+          python-env = config.python-instance pkgs;
+        in
+          pkgs.writeScript "devtools-${name}" ''
+            #!${pkgs.bash}/bin/bash
+            set -euo pipefail
+            mode="''${1:-}"
+            if (( $# > 0 )); then shift; fi
+            case "$mode" in
+              python)
+                exec ${python-env}/bin/python "$@"
+                ;;
+              pip)
+                exec ${python-env}/bin/python -m pip "$@"
+                ;;
+              activate)
+                echo "export ${backup-var}=\"''${PATH-}\""
+                echo "export PATH=${python-env}/bin:''${PATH}"
+                ;;
+              deactivate)
+                echo "if [[ -n \"''${${backup-var}-}\" ]]; then"
+                echo "  export PATH=\"''${${backup-var}}\""
+                echo "  unset ${backup-var}"
+                echo "fi"
+                ;;
+              *)
+                echo "Usage: devtools/${name} {python|pip|activate|deactivate} [args...]" >&2
+                exit 1
+                ;;
+            esac
+          '';
+
+      nixos-module = nixos-module;
+    };
+  });
+
+  perSystem = { pkgs, ... }:
+  let
+    # One module per configured python instance.
+    to-python = name: python:
+      {
+        imports = [
+          (import ./setup.nix { python-name = name; python-config = python; })
+        ];
+      }
+    ;
+    imports = lib.attrValues (
+      lib.mapAttrs to-python flake-config.development-tools.python
+    );
+  in
+  {
+    inherit imports;
+  };
+in
+{
+  options = {
+    development-tools.python = mkOption {
+      type = types.attrsOf python-spec;
+      description = ''
+        The 'python' development tool configures python interpreters
+        bundled with a set of packages. Each attribute becomes an
+        individual configuration exposed as its own app
+        ('devtools/<name>') that dispatches to the interpreter, pip
+        and the activate/deactivate shell helpers, and contributes a
+        NixOS module ('nixos-module') that can be imported by a
+        'sandbox' container to install the environment inside it.
+      '';
+      default = { };
+    };
+    perSystem = mkPerSystemOption perSystem;
+  };
+}

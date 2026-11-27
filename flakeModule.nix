@@ -5,6 +5,7 @@ let
     ./neovim/default.nix
     ./llm-netogallo/config.nix
     ./opencode/config.nix
+    ./python/config.nix
     ./lite-llm/config.nix
     ./prelude/config.nix
     ./llm-providers/config.nix

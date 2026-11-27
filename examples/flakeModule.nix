@@ -44,7 +44,7 @@ in
       enable = true;
       nixos-modules = [
         config.development-tools.opencode.opencode.nixos-module
-        config.development-tools.prelude-python.nixos-module
+        config.development-tools.python.prelude-python.nixos-module
       ];
     };
 
