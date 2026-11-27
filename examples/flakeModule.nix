@@ -30,6 +30,12 @@ in
     config.development-tools.opencode.opencode.enable = true;
     config.development-tools.opencode.opencode-2.enable = true;
 
+    # Configure a python environment
+    config.development-tools.python.prelude-python = {
+      enable = true;
+      packages = py: with py; [ py.ipython ];
+    };
+
     # A sandbox container running the 'opencode' configuration. The
     # sandbox owns the container host setup (networking, user, bind
     # mounts); the opencode 'nixos-module' installs opencode and git
@@ -38,6 +44,7 @@ in
       enable = true;
       nixos-modules = [
         config.development-tools.opencode.opencode.nixos-module
+        config.development-tools.prelude-python.nixos-module
       ];
     };
 
