@@ -163,6 +163,9 @@ let
         let
           python-env = config.python-instance pkgs;
         in
+          # Todo: use docopt to implement the modes.
+          # Todo: move to a separate file and use the 'template' function
+          #   to create the application
           pkgs.writeScript "devtools-${name}" ''
             #!${pkgs.bash}/bin/bash
             set -euo pipefail
