@@ -154,6 +154,21 @@ let
       # relevant environment mutations instead of performing them
       # directly.
       #
+      # The script body is kept in a separate file ('launch.sh') and
+      # instantiated with the 'template' helper from 'tikal-prelude',
+      # following the same pattern used by the 'sandbox' launcher (see
+      # sandbox/setup.nix and sandbox/launch.sh). Only the
+      # placeholders listed below are substituted; the script uses
+      # shell '$var'/'$0'/'$(...)'  syntax for non-template variables
+      # and '''${...}' to emit literal '${...}' in the output (for
+      # the shell snippets produced by 'activate'/'deactivate').
+      #
+      # The mode ('python'/'pip'/'activate'/'deactivate') is parsed
+      # with 'docopts' from the usage text embedded in the script;
+      # only the first argument is passed to 'docopts' so the
+      # remaining arguments are forwarded verbatim to the selected
+      # mode instead of being interpreted as 'docopts' options.
+      #
       # A 'writeScript' is used (instead of 'writeShellApplication')
       # so the derivation's out path is the executable itself: this
       # makes 'app.program = "${application ...}"' a valid
@@ -161,39 +176,16 @@ let
       # 'opencode' app.
       application = pkgs:
         let
+          inherit (pkgs.tikal.prelude.template) template;
           python-env = config.python-instance pkgs;
         in
-          # Todo: use docopt to implement the modes.
-          # Todo: move to a separate file and use the 'template' function
-          #   to create the application
-          pkgs.writeScript "devtools-${name}" ''
-            #!${pkgs.bash}/bin/bash
-            set -euo pipefail
-            mode="''${1:-}"
-            if (( $# > 0 )); then shift; fi
-            case "$mode" in
-              python)
-                exec ${python-env}/bin/python "$@"
-                ;;
-              pip)
-                exec ${python-env}/bin/python -m pip "$@"
-                ;;
-              activate)
-                echo "export ${backup-var}=\"''${PATH-}\""
-                echo "export PATH=${python-env}/bin:''${PATH}"
-                ;;
-              deactivate)
-                echo "if [[ -n \"''${${backup-var}-}\" ]]; then"
-                echo "  export PATH=\"''${${backup-var}}\""
-                echo "  unset ${backup-var}"
-                echo "fi"
-                ;;
-              *)
-                echo "Usage: devtools/${name} {python|pip|activate|deactivate} [args...]" >&2
-                exit 1
-                ;;
-            esac
-          '';
+          pkgs.writeScript "devtools-${name}" (template ./launch.sh {
+            inherit name;
+            bash = pkgs.bash;
+            docopts = pkgs.docopts;
+            python-env = python-env;
+            backup-var = backup-var;
+          });
 
       nixos-module = nixos-module;
     };
